@@ -5,7 +5,8 @@ import socket
 import subprocess
 import time
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -35,14 +36,14 @@ def report_seq27() -> dict[str, Any]:
     return load_report(27)
 
 
-@pytest.fixture(scope="session")
-def postgres_server() -> Iterator[tuple[str, str]]:
-    """Ефемерний контейнер Postgres 16 на випадковому порту localhost: (ім'я, URL)."""
+@contextmanager
+def run_postgres(dbname: str) -> Iterator[tuple[str, str]]:
+    """Ефемерний контейнер Postgres 16 на випадковому порту localhost: (ім'я, URL до `dbname`)."""
     name = f"rover-test-{uuid.uuid4().hex[:8]}"
     subprocess.run(
         [
             "docker", "run", "-d", "--rm", "--name", name,
-            "-e", "POSTGRES_PASSWORD=test", "-e", "POSTGRES_DB=rover",
+            "-e", "POSTGRES_PASSWORD=test", "-e", f"POSTGRES_DB={dbname}",
             "-p", "127.0.0.1::5432", POSTGRES_IMAGE,
         ],
         check=True,
@@ -56,7 +57,7 @@ def postgres_server() -> Iterator[tuple[str, str]]:
             .stdout.splitlines()[0]
             .rsplit(":", 1)[1]
         )
-        url = f"postgresql://postgres:test@127.0.0.1:{port}/rover"
+        url = f"postgresql://postgres:test@127.0.0.1:{port}/{dbname}"
         for _ in range(60):
             try:
                 psycopg.connect(url, connect_timeout=2).close()
@@ -65,13 +66,26 @@ def postgres_server() -> Iterator[tuple[str, str]]:
                 time.sleep(1)
         else:
             raise RuntimeError("Postgres не піднявся за 60 с")
+        yield name, url
+    finally:
+        subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+
+
+@pytest.fixture(scope="session")
+def postgres_factory() -> Callable[[str], AbstractContextManager[tuple[str, str]]]:
+    """Запускає окремий ефемерний Postgres (для тестів, що потребують чистого сервера)."""
+    return run_postgres
+
+
+@pytest.fixture(scope="session")
+def postgres_server() -> Iterator[tuple[str, str]]:
+    """Спільний контейнер для тестів БД: база `rover` і ролі `ingest`, `viewer`."""
+    with run_postgres("rover") as (name, url):
         # Ролі існують до будь-якої міграції: GRANT потребує їх (data-model.md, Test fixtures).
         with psycopg.connect(url, autocommit=True) as conn:
             for role in ("ingest", "viewer"):
                 conn.execute(f"CREATE ROLE {role} LOGIN PASSWORD '{ROLE_PASSWORD}'")
         yield name, url
-    finally:
-        subprocess.run(["docker", "rm", "-f", name], capture_output=True)
 
 
 @pytest.fixture(scope="session")

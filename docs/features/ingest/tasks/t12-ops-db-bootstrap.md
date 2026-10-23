@@ -9,8 +9,8 @@ files_hint: ["ops/bootstrap_db.sh", "ops/README.md"]
 owner: "12romis"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 ## Why (user story)

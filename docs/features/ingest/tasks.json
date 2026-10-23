@@ -242,7 +242,7 @@
         "ops/README.md"
       ],
       "file": "docs/features/ingest/tasks/t12-ops-db-bootstrap.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T13",
