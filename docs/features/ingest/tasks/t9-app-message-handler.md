@@ -9,8 +9,8 @@ files_hint: ["src/rover_telemetry/ingest/handler.py", "tests/integration/test_ha
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 ## Why (user story)

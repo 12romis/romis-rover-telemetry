@@ -185,7 +185,7 @@
         "tests/integration/test_handler.py"
       ],
       "file": "docs/features/ingest/tasks/t9-app-message-handler.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T10",
