@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rover-telemetry"
+version = "0.0.0"
+description = "Збір звітів сесій ровера з MQTT у Postgres і дашборд для їх аналізу"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "paho-mqtt>=2.1,<3",
+    "psycopg[binary]>=3.2,<4",
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "jinja2>=3.1",
+    "yoyo-migrations>=9,<10",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "httpx2",
+    "ruff>=0.7",
+    "mypy>=1.13",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+rover_telemetry = ["web/templates/*", "web/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: потребує реального Postgres 16 в ефемерному контейнері Docker",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["src"]

@@ -1,0 +1,21 @@
+# Сервіси працюють у зовнішній мережі infra; порти на хост не публікуються (конституція №12).
+services:
+  ingest:
+    build: .
+    image: rover-telemetry:local
+    command: ["python", "-m", "rover_telemetry.ingest"]
+    env_file: .env
+    restart: unless-stopped
+    networks: [infra]
+
+  web:
+    build: .
+    image: rover-telemetry:local
+    command: ["python", "-m", "rover_telemetry.web"]
+    env_file: .env
+    restart: unless-stopped
+    networks: [infra]
+
+networks:
+  infra:
+    external: true
