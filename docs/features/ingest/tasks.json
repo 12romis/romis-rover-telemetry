@@ -81,7 +81,7 @@
         "tests/unit/test_report_valid.py"
       ],
       "file": "docs/features/ingest/tasks/t4-domain-parse-valid.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T5",

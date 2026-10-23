@@ -11,7 +11,7 @@
 | T1 | Промотувати міграцію таблиці sessions у live migrations/ як 0002 | migration | 12romis | S | — | done | COMMIT |
 | T2 | Промотувати міграцію таблиці rejected як 0003 | migration | 12romis | S | T1 | done | COMMIT |
 | T3 | Промотувати міграцію представлення session_gaps як 0004 | migration | 12romis | S | T2 | done | COMMIT |
-| T4 | Розібрати валідний звіт у ParsedSession (domain.parse_report, щасливий шлях) | domain | 12romis | M | — | todo | — |
+| T4 | Розібрати валідний звіт у ParsedSession (domain.parse_report, щасливий шлях) | domain | 12romis | M | — | done | COMMIT |
 | T5 | Відхиляти невалідні повідомлення з кодом причини (domain.parse_report, гілки Rejection) | domain | 12romis | M | T4 | todo | — |
 | T6 | Розділити налаштування й паролі: INGEST_DATABASE_URL, MQTT_*, compose environment | wiring | 12romis | S | — | todo | — |
 | T7 | Записувати сесії й відхилені: db.sessions.insert_session / insert_rejected | infra | 12romis | M | T2, T5 | todo | — |
