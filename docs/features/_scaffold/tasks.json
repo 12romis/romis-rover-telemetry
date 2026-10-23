@@ -1,0 +1,68 @@
+{
+  "slug": "_scaffold",
+  "tasks": [
+    {
+      "id": "S1",
+      "title": "Створити структуру пакета rover_telemetry (domain, db, ingest, web, config), pyproject.toml і .venv",
+      "layer": "scaffold",
+      "deps": [],
+      "acs": [],
+      "dod": "pip install -e '.[dev]' проходить; python -c 'import rover_telemetry' працює; модулі ingest і web мають точки входу python -m",
+      "files_hint": ["pyproject.toml", "src/rover_telemetry/", "src/rover_telemetry/domain/", "src/rover_telemetry/db/", "src/rover_telemetry/ingest/", "src/rover_telemetry/web/"]
+    },
+    {
+      "id": "S2",
+      "title": "Підключити pytest, фікстури seq 26 і 27 та smoke-тест запуску",
+      "layer": "scaffold",
+      "deps": ["S1"],
+      "acs": [],
+      "dod": "pytest -m 'not integration' проходить; tests/fixtures/ містить звіти seq 26 і 27 з docs/inputs/initial-plan.md; smoke-тест перевіряє, що web віддає /healthz і ingest імпортується",
+      "files_hint": ["tests/unit/", "tests/integration/", "tests/fixtures/", "pyproject.toml"]
+    },
+    {
+      "id": "S3",
+      "title": "Налаштувати yoyo-migrations і порожню початкову міграцію з rollback",
+      "layer": "scaffold",
+      "deps": ["S1"],
+      "acs": [],
+      "dod": "міграція застосовується й відкочується на ефемерному Postgres 16; сумісність yoyo з psycopg 3 підтверджена або заведено новий ADR; інтеграційний тест із маркером integration проходить",
+      "files_hint": ["migrations/", "tests/integration/"]
+    },
+    {
+      "id": "S4",
+      "title": "Налаштувати ruff і mypy --strict",
+      "layer": "scaffold",
+      "deps": ["S1"],
+      "acs": [],
+      "dod": "ruff check, ruff format --check і mypy src проходять без попереджень",
+      "files_hint": ["pyproject.toml"]
+    },
+    {
+      "id": "S5",
+      "title": "Додати Dockerfile, docker-compose.yml (ingest і web у мережі infra) та .env.example",
+      "layer": "scaffold",
+      "deps": ["S2"],
+      "acs": [],
+      "dod": "docker compose build проходить; compose не публікує порти на хост; .env.example містить лише назви змінних без значень; секрети не потрапляють у git",
+      "files_hint": ["Dockerfile", "docker-compose.yml", ".env.example", ".dockerignore"]
+    },
+    {
+      "id": "S6",
+      "title": "Додати workflow GitHub Actions (ruff, mypy, pytest unit і integration)",
+      "layer": "scaffold",
+      "deps": ["S2", "S3", "S4"],
+      "acs": [],
+      "dod": "workflow валідний; команди збігаються з lint_cmd і test_cmd з docs/architecture-map.md",
+      "files_hint": [".github/workflows/ci.yml"]
+    },
+    {
+      "id": "S7",
+      "title": "Оновити розділ «Команди» у CLAUDE.md і статус у README.md за обраним тулчейном",
+      "layer": "scaffold",
+      "deps": ["S2", "S3", "S4", "S5"],
+      "acs": [],
+      "dod": "розділ «Команди» містить реальні команди збірки, тестів, лінту й міграцій; конституція та інші розділи CLAUDE.md не змінені; README лишається двомовним",
+      "files_hint": ["CLAUDE.md", "README.md"]
+    }
+  ]
+}
