@@ -9,7 +9,7 @@
 | # | Task | Layer | Owner | Estimate | Blocked by | Status | Step |
 |---|---|---|---|---|---|---|---|
 | T1 | Промотувати міграцію таблиці sessions у live migrations/ як 0002 | migration | 12romis | S | — | done | COMMIT |
-| T2 | Промотувати міграцію таблиці rejected як 0003 | migration | 12romis | S | T1 | todo | — |
+| T2 | Промотувати міграцію таблиці rejected як 0003 | migration | 12romis | S | T1 | done | COMMIT |
 | T3 | Промотувати міграцію представлення session_gaps як 0004 | migration | 12romis | S | T2 | todo | — |
 | T4 | Розібрати валідний звіт у ParsedSession (domain.parse_report, щасливий шлях) | domain | 12romis | M | — | todo | — |
 | T5 | Відхиляти невалідні повідомлення з кодом причини (domain.parse_report, гілки Rejection) | domain | 12romis | M | T4 | todo | — |

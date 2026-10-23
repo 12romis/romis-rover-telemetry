@@ -41,7 +41,7 @@
         "tests/integration/test_migrations.py"
       ],
       "file": "docs/features/ingest/tasks/t2-migration-rejected.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",
