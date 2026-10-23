@@ -68,12 +68,129 @@ def _at(doc: dict[str, Any], *path: str) -> Any:
     return node
 
 
+EVENT = "rover.session.v1"
+SCHEMA_VERSION = 1
+MAX_BYTES = 1024  # межа розміру з контракту (docs/contracts/events.md, «Доставка»)
+
+# Типи відомих полів (контракт); `null` і відсутність дозволені для всіх.
+_INT, _NUM, _STR, _BOOL = "int", "number", "string", "bool"
+_FIELD_TYPES: dict[tuple[str, ...], str] = {
+    ("duration_ms",): _INT,
+    ("end_reason",): _STR,
+    ("voltage_start_mv",): _INT,
+    ("voltage_end_mv",): _INT,
+    ("voltage_min_mv",): _INT,
+    ("holds", "count"): _INT,
+    ("holds", "total_ms"): _INT,
+    ("holds", "min_mm"): _INT,
+    ("holds", "min_sensor"): _STR,
+    ("holds", "by_sensor", "left_front"): _INT,
+    ("holds", "by_sensor", "front"): _INT,
+    ("holds", "by_sensor", "right_front"): _INT,
+    ("holds", "by_sensor", "rear"): _INT,
+    ("tof_control_off_ms",): _INT,
+    ("moving_ms",): _INT,
+    ("distance_cm",): _INT,
+    ("speed", "left_avg_rpm"): _NUM,
+    ("speed", "left_peak_rpm"): _NUM,
+    ("speed", "right_avg_rpm"): _NUM,
+    ("speed", "right_peak_rpm"): _NUM,
+    ("speed", "imbalance_pct"): _NUM,
+    ("encoders", "left"): _BOOL,
+    ("encoders", "right"): _BOOL,
+    ("fw", "version"): _STR,
+    ("fw", "git"): _STR,
+    ("fw", "dirty"): _BOOL,
+    ("fw", "idf"): _STR,
+}
+_OBJECTS: tuple[tuple[str, ...], ...] = (
+    ("holds",),
+    ("holds", "by_sensor"),
+    ("speed",),
+    ("encoders",),
+    ("fw",),
+)
+
+
+def _is_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _has_type(value: Any, kind: str) -> bool:
+    if kind == _INT:
+        return _is_int(value)
+    if kind == _NUM:
+        return _is_int(value) or isinstance(value, float)
+    if kind == _STR:
+        return isinstance(value, str)
+    return isinstance(value, bool)
+
+
+def _bad_field_type(doc: dict[str, Any]) -> str | None:
+    """Перше відоме поле з неправильним типом (`null` і відсутнє не рахуються), або `None`."""
+    for path in _OBJECTS:
+        value = _at(doc, *path)
+        if value is not None and not isinstance(value, dict):
+            return ".".join(path)
+    for path, kind in _FIELD_TYPES.items():
+        value = _at(doc, *path)
+        if value is not None and not _has_type(value, kind):
+            return ".".join(path)
+    return None
+
+
+def _reject(topic: str, payload: bytes, received_at: datetime, code: str, text: str) -> Rejection:
+    return Rejection(
+        topic=topic,
+        reason_code=code,
+        reason_text=text,
+        raw=payload[:MAX_BYTES],
+        raw_size=len(payload),
+        raw_truncated=code == "too_large",
+        received_at=received_at,
+    )
+
+
+def _topic_mac(topic: str) -> str | None:
+    parts = topic.split("/")
+    if len(parts) == 3 and parts[0] == "rover" and parts[2] == "session":
+        return parts[1]
+    return None
+
+
 def parse_report(topic: str, payload: bytes, received_at: datetime) -> ParsedSession | Rejection:
-    doc: dict[str, Any] = json.loads(payload)
+    """Розбирає повідомлення; першу ваду за порядком SAD §8 повертає як `Rejection`."""
+
+    def reject(code: str, text: str) -> Rejection:
+        return _reject(topic, payload, received_at, code, text)
+
+    if len(payload) > MAX_BYTES:
+        return reject("too_large", f"повідомлення більше {MAX_BYTES} байт")
+    try:
+        doc = json.loads(payload.decode("utf-8"))
+    except ValueError:  # UnicodeDecodeError і JSONDecodeError — нащадки ValueError
+        return reject("not_json", "повідомлення не є коректним JSON у UTF-8")
+    if not isinstance(doc, dict):
+        return reject("not_json", "JSON не є об'єктом")
+    if doc.get("event") != EVENT:
+        return reject("unknown_event", f"невідомий тип події, очікується {EVENT}")
+    version = doc.get("schema_version")
+    if not _is_int(version) or version != SCHEMA_VERSION:
+        return reject("unsupported_schema", "непідтримана версія схеми")
+    mac, seq = doc.get("mac"), doc.get("seq")
+    if mac is None or seq is None:
+        return reject("missing_id", "немає ідентифікатора ровера або номера сесії")
+    if not isinstance(mac, str) or not _is_int(seq):
+        return reject("bad_type", "ідентифікатор ровера або номер сесії має неправильний тип")
+    if mac != _topic_mac(topic):
+        return reject("id_mismatch", "ідентифікатори не збігаються")
+    bad = _bad_field_type(doc)
+    if bad is not None:
+        return reject("bad_type", f"поле {bad} має неправильний тип")
     return ParsedSession(
-        mac=doc["mac"],
-        seq=doc["seq"],
-        schema_version=doc["schema_version"],
+        mac=mac,
+        seq=seq,
+        schema_version=version,
         received_at=received_at,
         raw=payload,
         payload=doc,

@@ -101,7 +101,7 @@
         "tests/unit/test_report_rejected.py"
       ],
       "file": "docs/features/ingest/tasks/t5-domain-reject-reasons.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T6",
