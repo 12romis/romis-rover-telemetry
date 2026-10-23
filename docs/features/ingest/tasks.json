@@ -62,7 +62,7 @@
         "tests/integration/test_migrations.py"
       ],
       "file": "docs/features/ingest/tasks/t3-migration-session-gaps.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T4",
