@@ -9,8 +9,8 @@ files_hint: ["src/rover_telemetry/config.py", "docker-compose.yml", ".env.exampl
 owner: "12romis"
 estimate: "S"
 context_budget: "S"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 ## Why (user story)

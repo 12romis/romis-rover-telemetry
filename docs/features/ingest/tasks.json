@@ -119,7 +119,7 @@
         "tests/unit/test_config.py"
       ],
       "file": "docs/features/ingest/tasks/t6-wiring-config-compose.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T7",

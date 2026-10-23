@@ -1,19 +1,59 @@
 """Налаштування з змінних середовища; назви — у `.env.example`, значення — поза git."""
 
 import os
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+
+
+class ConfigError(Exception):
+    """Обов'язкова змінна середовища не задана або порожня."""
+
+
+def _required(env: Mapping[str, str], name: str) -> str:
+    value = env.get(name, "")
+    if not value:
+        raise ConfigError(f"не задано змінну середовища {name}")
+    return value
 
 
 @dataclass(frozen=True)
-class Settings:
-    database_url: str
+class IngestSettings:
+    """Налаштування сервісу приймання. Паролів і рядків підключення за замовчуванням немає."""
+
+    database_url: str = field(repr=False)
+    mqtt_username: str
+    mqtt_password: str = field(repr=False)
     mqtt_host: str
     mqtt_port: int
+    # Сталий client id потрібен постійній сесії брокера (конституція №7).
+    mqtt_client_id: str
+    # Інтервал очікування БД і таймаут підключення — вибір розбиття задач (ADR-0001:
+    # «кілька секунд», «менше за keepalive»), а не вимога контракту.
+    db_wait_interval_s: float
+    db_connect_timeout_s: float
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls, env: Mapping[str, str] | None = None) -> "IngestSettings":
+        env = os.environ if env is None else env
         return cls(
-            database_url=os.environ.get("DATABASE_URL", ""),
-            mqtt_host=os.environ.get("MQTT_HOST", "mosquitto"),
-            mqtt_port=int(os.environ.get("MQTT_PORT", "1883")),
+            database_url=_required(env, "INGEST_DATABASE_URL"),
+            mqtt_username=_required(env, "MQTT_USERNAME"),
+            mqtt_password=_required(env, "MQTT_PASSWORD"),
+            mqtt_host=env.get("MQTT_HOST") or "mosquitto",
+            mqtt_port=int(env.get("MQTT_PORT") or "1883"),
+            mqtt_client_id=env.get("MQTT_CLIENT_ID") or "rover-ingest",
+            db_wait_interval_s=float(env.get("DB_WAIT_INTERVAL_S") or "2"),
+            db_connect_timeout_s=float(env.get("DB_CONNECT_TIMEOUT_S") or "5"),
         )
+
+
+@dataclass(frozen=True)
+class WebSettings:
+    """Налаштування дашборду: лише рядок підключення ролі `viewer`."""
+
+    database_url: str = field(repr=False)
+
+    @classmethod
+    def from_env(cls, env: Mapping[str, str] | None = None) -> "WebSettings":
+        env = os.environ if env is None else env
+        return cls(database_url=_required(env, "WEB_DATABASE_URL"))
