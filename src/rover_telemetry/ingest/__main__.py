@@ -5,8 +5,10 @@ QoS 1, фіксований client id, постійна сесія, manual ack: 
 """
 
 import logging
+import os
 import signal
 import sys
+import threading
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -59,9 +61,20 @@ def make_on_message(
     *,
     handle: Callable[[psycopg.Connection, str, bytes, datetime], Any] = handle_message,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    timeout_s: float = 5.0,
+    exit_process: Callable[[int], None] = os._exit,
 ) -> Callable[[Any, Any, Any], None]:
+    def hung() -> None:
+        # БД не відповідає (замерзла, а не відмовила): повного виходу без ack достатньо, брокер
+        # віддасть звіт знову. os._exit, бо головний потік заблоковано в запиті до БД.
+        log.error("event=error stage=timeout timeout_s=%s", timeout_s)
+        exit_process(1)
+
     def on_message(client: Any, userdata: Any, msg: Any) -> None:
         received_at = now()  # першим кроком: верхня межа часу сесії
+        watchdog = threading.Timer(timeout_s, hung)
+        watchdog.daemon = True
+        watchdog.start()
         try:
             handle(conn, msg.topic, bytes(msg.payload), received_at)
         except Exception as err:
@@ -69,6 +82,8 @@ def make_on_message(
             log.error("event=error stage=handle error=%s", type(err).__name__)
             client.disconnect()
             raise SystemExit(1) from err
+        finally:
+            watchdog.cancel()
         client.ack(msg.mid, msg.qos)  # лише після COMMIT усередині handle
 
     return on_message
@@ -96,7 +111,8 @@ def main() -> None:
     conn = wait_for_db(settings)
     client = build_client(settings)
     client.on_connect = make_on_connect()
-    client.on_message = make_on_message(conn)
+    # Таймаут запиту до БД — «кілька секунд, менше за keepalive» (ADR-0001), як і підключення.
+    client.on_message = make_on_message(conn, timeout_s=settings.db_connect_timeout_s)
 
     def stop(signum: int, frame: FrameType | None) -> None:
         # Чисте відключення; непідтверджені повідомлення лишаються в черзі брокера.

@@ -225,7 +225,7 @@
         "tests/integration/test_ingest_e2e.py"
       ],
       "file": "docs/features/ingest/tasks/t11-tests-ingest-e2e.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T12",

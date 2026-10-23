@@ -1,6 +1,8 @@
 """Запуск підписника: очікування БД, QoS 1 з manual ack, вихід при збої (AC-17, AC-18)."""
 
 import logging
+import threading
+import time
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
@@ -134,3 +136,43 @@ def test_client_is_persistent_with_fixed_id_and_manual_ack() -> None:
     assert client._clean_session is False
     assert client._manual_ack is True
     assert client._protocol == mqtt.MQTTv311
+
+
+def test_hung_storage_exits_with_code_1_after_timeout(caplog: pytest.LogCaptureFixture) -> None:
+    """ADR-0001: запит до БД не висить вічно; без відповіді процес виходить з кодом 1."""
+    release = threading.Event()
+    exits: list[int] = []
+    exited = threading.Event()
+
+    def fake_exit(code: int) -> None:
+        exits.append(code)
+        exited.set()
+        release.set()  # відпускає завислий обробник, щоб тест завершився
+
+    def hang(*_args: Any) -> Outcome:
+        release.wait(5)
+        return Outcome.STORED
+
+    calls: list[Any] = []
+    on_message = make_on_message(
+        "C", handle=hang, now=lambda: STAMP, timeout_s=0.1, exit_process=fake_exit
+    )
+    with caplog.at_level(logging.ERROR):
+        on_message(FakeClient(calls), None, _msg())
+    assert exited.wait(2)
+    assert exits == [1]
+    assert any("stage=timeout" in r.getMessage() for r in caplog.records)
+
+
+def test_fast_handling_does_not_trigger_the_watchdog() -> None:
+    exits: list[int] = []
+    on_message = make_on_message(
+        "C",
+        handle=lambda *_a: Outcome.STORED,
+        now=lambda: STAMP,
+        timeout_s=0.1,
+        exit_process=exits.append,
+    )
+    on_message(FakeClient([]), None, _msg())
+    time.sleep(0.3)
+    assert exits == []

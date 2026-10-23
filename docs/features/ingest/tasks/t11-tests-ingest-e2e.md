@@ -9,8 +9,8 @@ files_hint: ["tests/conftest.py", "tests/integration/test_ingest_e2e.py"]
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 ## Why (user story)
