@@ -122,10 +122,10 @@ C4Container
 - Контракт канонічний і не редагується — `docs/contracts/events.md`; константи ровера (діаметр колеса 44 мм, поріг перешкоди 190 мм, відсічка 6.0 В) беруться з контракту, не вигадуються — `docs/constitution.md` №3.
 - Дедлайн презентації 2026-10-26: пріоритет — ingest і блок «Підсумки + таблиця виїздів» — `docs/idea-brief.md` §6.
 - Втрата сесій до запуску `ingest` безповоротна; облік пропусків `seq` починається з першого отриманого — `docs/inputs/owner-decisions.md` №7.
-- Домен дашборду й блок Caddy: UNKNOWN — власник має назвати піддомен `*.romis.cloud` до розгортання `web` (ставиться в `/sdd:roadmap` / `/sdd:specify`). Блок додається в `/opt/n8n/Caddyfile`.
+- Домен дашборду — `rover.romis.cloud` (owner-reported, 2026-10-23), публічний, без автентифікації. Блок `reverse_proxy` на `web` додається в `/opt/n8n/Caddyfile`; DNS-запис потрібен до розгортання.
 - Імена облікових записів брокера (`rover-ingest`, `rover-viewer`) і ролей Postgres фіксуються в `docs/inputs/owner-decisions.md` №5 і ADR-0003; ACL звужується разом із запуском `ingest`.
 - `yoyo-migrations` з драйвером `psycopg` 3 перевіряється в scaffold-задачі S3; якщо несумісний — новий ADR, а не мовчазна заміна інструмента.
 
 ## Reconciliation with the authored architecture doc
 
-Авторського `docs/architecture.md` немає. Карта узгоджена з `CLAUDE.md` проєкту (§Інфраструктура сервера), `docs/constitution.md` і `docs/inputs/initial-plan.md`. Розбіжність знайдена одна: `initial-plan.md` каже «домен за Caddy з автентифікацією», а конституція №12 і рішення власника №4 — публічний без автентифікації; карта слідує конституції.
+Авторського `docs/architecture.md` немає. Карта узгоджена з `CLAUDE.md` проєкту (§Інфраструктура сервера), `docs/constitution.md` і `docs/inputs/initial-plan.md`. Розбіжність з `initial-plan.md` («з автентифікацією») усунена: у плані тепер публічний `rover.romis.cloud` без автентифікації, як у конституції №12 і рішенні власника №4.
