@@ -15,3 +15,7 @@
 - `docs/contracts/events.md` — event contract `rover.session.v1` / контракт події
 - `docs/constitution.md` — project rules / правила проєкту
 - `docs/inputs/` — context, initial plan, owner decisions / контекст, план, рішення власника
+
+## License / Ліцензія
+
+MIT — see `LICENSE` / див. `LICENSE`.
