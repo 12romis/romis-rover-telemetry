@@ -205,7 +205,7 @@
         "tests/unit/test_runner.py"
       ],
       "file": "docs/features/ingest/tasks/t10-app-mqtt-runner.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T11",

@@ -17,7 +17,7 @@
 | T7 | Записувати сесії й відхилені: db.sessions.insert_session / insert_rejected | infra | 12romis | M | T2, T5 | done | COMMIT |
 | T8 | Перевірити ролі Postgres і облік втрат session_gaps | tests | 12romis | M | T3, T7 | done | COMMIT |
 | T9 | Обробити одне повідомлення: розбір → запис → COMMIT → результат (ingest.handler) | app | 12romis | M | T7 | done | COMMIT |
-| T10 | Запустити підписника: очікування БД, MQTT QoS 1 з manual ack, вихід при збої | app | 12romis | M | T6, T9 | todo | — |
+| T10 | Запустити підписника: очікування БД, MQTT QoS 1 з manual ack, вихід при збої | app | 12romis | M | T6, T9 | done | COMMIT |
 | T11 | Наскрізні тести ingest: збій сховища, наздоганяння 1000 звітів, перезапуск | tests | 12romis | M | T8, T10 | todo | — |
 | T12 | Скрипт Оператора: створити БД rover і ролі owner, ingest, viewer | infra | 12romis | S | — | todo | — |
 | T13 | Скрипти Оператора: ACL брокера, пробна публікація, перевірка запуску, відкат | docs | 12romis | M | T10, T12 | todo | — |

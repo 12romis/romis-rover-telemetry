@@ -9,8 +9,8 @@ files_hint: ["src/rover_telemetry/ingest/__main__.py", "tests/unit/test_runner.p
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 ## Why (user story)
