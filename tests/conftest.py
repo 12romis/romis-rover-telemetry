@@ -10,9 +10,13 @@ from typing import Any
 
 import psycopg
 import pytest
+from yoyo import get_backend, read_migrations
 
 FIXTURES = Path(__file__).parent / "fixtures"
 POSTGRES_IMAGE = "pgvector/pgvector:pg16"
+MIGRATIONS = Path(__file__).parents[1] / "migrations"
+# Тестові паролі ролей; реальні створює скрипт Оператора (ops/bootstrap_db.sh).
+ROLE_PASSWORD = "test"
 
 
 def load_report(seq: int) -> dict[str, Any]:
@@ -60,6 +64,32 @@ def postgres_url() -> Iterator[str]:
                 time.sleep(1)
         else:
             raise RuntimeError("Postgres не піднявся за 60 с")
+        # Ролі існують до будь-якої міграції: GRANT потребує їх (data-model.md, Test fixtures).
+        with psycopg.connect(url, autocommit=True) as conn:
+            for role in ("ingest", "viewer"):
+                conn.execute(f"CREATE ROLE {role} LOGIN PASSWORD '{ROLE_PASSWORD}'")
         yield url
     finally:
         subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+
+
+def role_url(url: str, role: str, dbname: str) -> str:
+    """Рядок підключення до `dbname` від імені ролі `ingest` або `viewer`."""
+    host = url.split("@", 1)[1].rsplit("/", 1)[0]
+    return f"postgresql://{role}:{ROLE_PASSWORD}@{host}/{dbname}"
+
+
+@pytest.fixture
+def migrated_db(postgres_url: str) -> Iterator[str]:
+    """Свіжа БД у спільному контейнері з усіма міграціями; віддає URL власника (postgres)."""
+    dbname = f"t_{uuid.uuid4().hex[:8]}"
+    with psycopg.connect(postgres_url, autocommit=True) as conn:
+        conn.execute(f"CREATE DATABASE {dbname}")
+    base = postgres_url.rsplit("/", 1)[0]
+    url = f"{base}/{dbname}"
+    backend = get_backend(url.replace("postgresql://", "postgresql+psycopg://"))
+    with backend.lock():
+        backend.apply_migrations(backend.to_apply(read_migrations(str(MIGRATIONS))))
+    yield url
+    with psycopg.connect(postgres_url, autocommit=True) as conn:
+        conn.execute(f"DROP DATABASE {dbname} WITH (FORCE)")

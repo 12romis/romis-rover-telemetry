@@ -9,8 +9,8 @@ files_hint: ["docs/features/ingest/migrations/01_create_sessions.sql", "docs/fea
 owner: "12romis"
 estimate: "S"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 ## Why (user story)

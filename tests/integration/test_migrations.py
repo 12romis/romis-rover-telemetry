@@ -19,11 +19,11 @@ def _applied(url: str) -> list[str]:
 def test_apply_and_rollback(postgres_url: str) -> None:
     backend = get_backend(postgres_url.replace("postgresql://", "postgresql+psycopg://"))
     migrations = read_migrations(str(MIGRATIONS))
-    assert len(migrations) == 1
+    assert len(migrations) == 2
 
     with backend.lock():
         backend.apply_migrations(backend.to_apply(migrations))
-    assert _applied(postgres_url) == ["0001_init"]
+    assert _applied(postgres_url) == ["0001_init", "0002_create_sessions"]
 
     with backend.lock():
         backend.rollback_migrations(backend.to_rollback(migrations))

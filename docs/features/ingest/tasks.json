@@ -20,7 +20,7 @@
         "tests/integration/test_migrations.py"
       ],
       "file": "docs/features/ingest/tasks/t1-migration-sessions.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T2",
