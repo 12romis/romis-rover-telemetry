@@ -9,8 +9,8 @@ files_hint: ["ops/acl.narrow.template", "ops/probe_publish.sh", "ops/verify_laun
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 ## Why (user story)

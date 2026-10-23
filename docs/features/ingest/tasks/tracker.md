@@ -20,6 +20,6 @@
 | T10 | Запустити підписника: очікування БД, MQTT QoS 1 з manual ack, вихід при збої | app | 12romis | M | T6, T9 | done | COMMIT |
 | T11 | Наскрізні тести ingest: збій сховища, наздоганяння 1000 звітів, перезапуск | tests | 12romis | M | T8, T10 | done | COMMIT |
 | T12 | Скрипт Оператора: створити БД rover і ролі owner, ingest, viewer | infra | 12romis | S | — | done | COMMIT |
-| T13 | Скрипти Оператора: ACL брокера, пробна публікація, перевірка запуску, відкат | docs | 12romis | M | T10, T12 | todo | — |
+| T13 | Скрипти Оператора: ACL брокера, пробна публікація, перевірка запуску, відкат | docs | 12romis | M | T10, T12 | done | COMMIT |
 
 **Total:** 13 tasks, ~10.5 person-days.

@@ -1,0 +1,11 @@
+# Звужені права брокера для rover (feature ingest, ADR-0003, sad.md §8). Без паролів: паролі
+# в /opt/mosquitto/config/passwd. Не копіюється в acl цілком (там є admin, beetroot): блоки
+# вставляє ops/apply_acl.sh.
+user RomisRover
+topic write rover/+/session
+
+user rover-ingest
+topic read rover/+/session
+
+user rover-viewer
+topic read rover/+/session
