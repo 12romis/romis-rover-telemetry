@@ -93,3 +93,15 @@ def migrated_db(postgres_url: str) -> Iterator[str]:
     yield url
     with psycopg.connect(postgres_url, autocommit=True) as conn:
         conn.execute(f"DROP DATABASE {dbname} WITH (FORCE)")
+
+
+@pytest.fixture
+def ingest_url(migrated_db: str) -> str:
+    """Рядок підключення до `migrated_db` від ролі `ingest` (лише INSERT)."""
+    return role_url(migrated_db, "ingest", migrated_db.rsplit("/", 1)[1])
+
+
+@pytest.fixture
+def viewer_url(migrated_db: str) -> str:
+    """Рядок підключення до `migrated_db` від ролі `viewer` (лише SELECT)."""
+    return role_url(migrated_db, "viewer", migrated_db.rsplit("/", 1)[1])

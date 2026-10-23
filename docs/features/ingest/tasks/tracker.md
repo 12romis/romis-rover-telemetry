@@ -14,7 +14,7 @@
 | T4 | Розібрати валідний звіт у ParsedSession (domain.parse_report, щасливий шлях) | domain | 12romis | M | — | done | COMMIT |
 | T5 | Відхиляти невалідні повідомлення з кодом причини (domain.parse_report, гілки Rejection) | domain | 12romis | M | T4 | done | COMMIT |
 | T6 | Розділити налаштування й паролі: INGEST_DATABASE_URL, MQTT_*, compose environment | wiring | 12romis | S | — | done | COMMIT |
-| T7 | Записувати сесії й відхилені: db.sessions.insert_session / insert_rejected | infra | 12romis | M | T2, T5 | todo | — |
+| T7 | Записувати сесії й відхилені: db.sessions.insert_session / insert_rejected | infra | 12romis | M | T2, T5 | done | COMMIT |
 | T8 | Перевірити ролі Postgres і облік втрат session_gaps | tests | 12romis | M | T3, T7 | todo | — |
 | T9 | Обробити одне повідомлення: розбір → запис → COMMIT → результат (ingest.handler) | app | 12romis | M | T7 | todo | — |
 | T10 | Запустити підписника: очікування БД, MQTT QoS 1 з manual ack, вихід при збої | app | 12romis | M | T6, T9 | todo | — |

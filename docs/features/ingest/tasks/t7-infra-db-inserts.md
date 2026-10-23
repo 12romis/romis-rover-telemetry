@@ -9,8 +9,8 @@ files_hint: ["src/rover_telemetry/db/sessions.py", "tests/integration/test_db_in
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 ## Why (user story)

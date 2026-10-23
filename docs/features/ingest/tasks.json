@@ -141,7 +141,7 @@
         "tests/integration/test_db_inserts.py"
       ],
       "file": "docs/features/ingest/tasks/t7-infra-db-inserts.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T8",
