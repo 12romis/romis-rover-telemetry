@@ -9,8 +9,8 @@ files_hint: ["tests/integration/test_roles.py", "tests/integration/test_session_
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 ## Why (user story)

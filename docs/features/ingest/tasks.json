@@ -164,7 +164,7 @@
         "tests/conftest.py"
       ],
       "file": "docs/features/ingest/tasks/t8-tests-roles-session-gaps.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T9",
