@@ -221,7 +221,185 @@ sequenceDiagram
     Operator->>Db: Підтверджує звіт, час отримано, початок обліку втрат
 ```
 
-Решту потоків (кожне AC: усі гілки відхилення, зсув початку обліку, наздоганяння черги, відкат AC-20) покриває `sequences`.
+**Critical flow 4: розбір звіту і причини відхилення (US-03, US-05, US-06, US-07).**
+
+Учасники узагальнені за вокабуляром `sequences`: `<message-bus>`, `<service>`, `<data-store>`. Причини перелічено в порядку перевірки (§8, «Reason codes»): перша, що спрацювала, і є причиною.
+
+```mermaid
+sequenceDiagram
+    participant Bus as message-bus
+    participant Svc as service
+    participant Store as data-store
+    Note over Bus,Svc: Precondition: повідомлення доставлено, топік містить ідентифікатор ровера
+    Bus->>Svc: Доставляє повідомлення
+    Svc->>Svc: Ставить received_at (час сервісу UTC) до розбору
+    alt понад 1024 байти
+        Svc->>Store: Зберігає як відхилене, причина too_large, вміст обрізано по байтах
+    else не читається як звіт
+        Svc->>Store: Зберігає як відхилене, причина not_json
+    else невідомий тип події
+        Svc->>Store: Зберігає як відхилене, причина unknown_event
+    else версія схеми не 1
+        Svc->>Store: Зберігає як відхилене, причина unsupported_schema, вміст дослівно
+    else немає ідентифікатора ровера чи номера сесії
+        Svc->>Store: Зберігає як відхилене, причина missing_id
+    else ідентифікатор у звіті не збігається з топіком
+        Svc->>Store: Зберігає як відхилене, причина id_mismatch
+    else відоме поле має неправильний тип
+        Svc->>Store: Зберігає як відхилене, причина bad_type
+    else звіт валідний
+        Note over Svc: Відсутні поля стають NULL, виміряний нуль лишається нулем, невідомі поля ігноруються
+        Note over Svc: Часу створення чи початку сесії немає, лише received_at
+        Svc->>Store: Зберігає сесію разом із повним вмістом дослівно
+    end
+    Note over Svc,Store: persists rejected (raw, причина, received_at, позначка обрізання) або session (розібрані колонки, raw, payload, received_at)
+    Store-->>Svc: COMMIT виконано
+    Svc->>Bus: ack після COMMIT
+    Note over Bus,Store: Postcondition: кожна повторна доставка відхиленого дає окремий запис, відхилений не займає номер сесії
+```
+
+**Critical flow 5: облік втрат (US-04).**
+
+```mermaid
+sequenceDiagram
+    actor Owner as client (Власник ровера)
+    participant Bus as message-bus
+    participant Svc as service
+    participant Store as data-store
+    Note over Store: Precondition: для ровера збережено сесії 28, 29 і 31
+    Owner->>Store: Запитує облік втрат ровера
+    Note over Store: Початок обліку це найменший збережений номер, пропуски рахуються лише від нього і вище
+    Store-->>Owner: Втрачена сесія 30 (сесії до 28 втраченими не вважаються)
+    Bus->>Svc: Доставляє звіт 30 пізніше за 31 (порядок довільний)
+    Svc->>Store: Зберігає сесію 30
+    Note over Svc,Store: persists session
+    Owner->>Store: Повторно запитує облік втрат
+    Store-->>Owner: Втрат немає
+    opt надходить звіт з номером меншим за початок обліку
+        Bus->>Svc: Доставляє звіт 25
+        Svc->>Store: Зберігає сесію 25
+        Note over Svc,Store: persists session
+        Owner->>Store: Запитує облік втрат
+        Store-->>Owner: Початок зсунувся до 25, втраченими показано номери без збереженої сесії між 25 і останнім
+    end
+    Note over Owner,Store: Postcondition: облік рахується запитом, окремо не зберігається
+```
+
+**Critical flow 6: наздоганяння черги після простою (US-09).**
+
+Асинхронний потік: ключ ідемпотентності `(mac, seq)` (перший крок обробника — вставка без перезапису), повтор доставки брокером для непідтверджених, «мертва черга» — таблиця відхилених.
+
+```mermaid
+sequenceDiagram
+    participant Ext as external-system (Ровер)
+    participant Bus as message-bus
+    participant Svc as service
+    participant Store as data-store
+    Note over Svc: Precondition: сервіс раніше підключався і зараз вимкнений
+    Ext->>Bus: Надсилає кілька звітів, поки сервіс вимкнений
+    Note over Bus: Брокер тримає їх у черзі постійної сесії
+    Svc->>Store: Очікує доступності сховища
+    Svc->>Bus: Підключається з тим самим client id і постійною сесією
+    Note over Bus,Svc: retry: брокер віддає непідтверджені звіти знову, доки не буде ack
+    loop для кожного накопиченого звіту
+        Bus->>Svc: Доставляє звіт (порядок довільний)
+        Svc->>Store: Вставка за ключем (mac, seq) без перезапису
+        alt нова сесія
+            Store-->>Svc: 1 рядок
+        else дубль (доставлено повторно)
+            Store-->>Svc: 0 рядків
+        else звіт невалідний (мертва черга)
+            Svc->>Store: Зберігає як відхилене з причиною
+        end
+        Note over Svc,Store: persists session або rejected
+        Svc->>Bus: ack після COMMIT
+    end
+    Note over Svc,Store: Postcondition: усі звіти збережено, облік втрат показує лише справжні пропуски нумерації
+```
+
+**Critical flow 7: відмови за правами (US-08).**
+
+```mermaid
+sequenceDiagram
+    participant Ext as external-system (Ровер)
+    participant Anon as client (без облікових даних)
+    participant Viewer as client (дашборд, лише читання)
+    participant Bus as message-bus
+    participant Svc as service
+    participant Store as data-store
+    Note over Bus,Store: Precondition: ACL брокера і ролі сховища звужені (після запуску)
+    alt Ровер публікує звіт сесії
+        Ext->>Bus: Публікує на топік сесії свого каналу
+        Bus->>Svc: Доставляє звіт
+    else Ровер читає або публікує на інший топік
+        Ext->>Bus: Підписується або публікує поза топіком сесії
+        Bus--xExt: Відмовляє, нічого не доставлено
+    else особа без облікових даних
+        Anon->>Bus: Намагається надіслати звіт
+        Bus--xAnon: Відмовляє, нічого не збережено
+    else дашборд змінює або видаляє збережене
+        Viewer->>Store: Змінює або видаляє сесію чи відхилений звіт
+        Store--xViewer: Відмовляє, дані без змін
+    else сервіс змінює збережене або публікує
+        Svc->>Store: Змінює або видаляє збережену сесію
+        Store--xSvc: Відмовляє, лише дописування
+        Svc->>Bus: Намагається надіслати звіт
+        Bus--xSvc: Відмовляє, сервіс лише читає
+    end
+    Note over Ext,Store: Postcondition: ровер лише пише звіти сесії, сервіс лише читає з брокера і дописує, дашборд лише читає. Відмова діє на рівні каналів, а не окремих роверів
+```
+
+**Critical flow 8: відкат звуження ACL (US-10, AC-20).**
+
+```mermaid
+sequenceDiagram
+    actor Operator as client (Оператор сервера)
+    participant Ext as external-system (Ровер)
+    participant Bus as message-bus
+    participant Svc as service
+    participant Store as data-store
+    Note over Operator,Bus: Precondition: ACL звужено, відомо що ровер завершив виїзд, збережено копію попереднього ACL
+    Ext->>Bus: Надсилає звіт завершеного виїзду
+    Bus->>Svc: Доставляє звіт
+    Svc->>Store: Зберігає сесію
+    Note over Svc,Store: persists session
+    Operator->>Store: Перевіряє запуск через 30 хв після завершення виїзду
+    alt звіт серед збережених
+        Store-->>Operator: Сесію знайдено, перевірка пройдена (потік 3)
+    else звіту немає
+        Store-->>Operator: Сесії немає
+        Note over Operator: Перевірка не пройдена
+        Operator->>Bus: Повертає попередній ACL і надсилає SIGHUP
+        Operator->>Bus: Пробна публікація від імені ровера на топік сесії
+        Bus->>Svc: Доставляє пробне, сервіс і далі читає
+        Note over Ext,Bus: Postcondition: ровер знову може надсилати звіти, читання для сервісу лишається
+    else виїздів не було
+        Note over Operator: Відкату немає, перевірка лишається відкритою
+    end
+```
+
+**Покриття user story та AC потоками.**
+
+| US | Потоки | AC |
+|---|---|---|
+| US-01 | 1, 4 | AC-01 (потік 1), AC-02 (розбір фікстур, потік 4 показує розбір, звірка значень це юніт-рівень, не runtime) |
+| US-02 | 1, 6 | AC-03, AC-03b (гілка «дубль» потоку 1, 0 рядків), AC-04 і AC-05b (унікальний ключ `(mac, seq)` лише в `sessions`, це схема, не runtime: перевіряє `data-model`/`plan-tests`) |
+| US-03 | 1, 4 | AC-05, AC-06, AC-07 (гілки потоку 4) |
+| US-04 | 5 | AC-08, AC-09 |
+| US-05 | 4 | AC-10 (гілка «звіт валідний») |
+| US-06 | 4 | AC-11 (нотатка про `received_at`) |
+| US-07 | 4 | AC-12 (повний вміст у `raw`) |
+| US-08 | 7 | AC-13, AC-14, AC-15, AC-16 |
+| US-09 | 2, 6 | AC-17 (потік 6), AC-18 (потік 2) |
+| US-10 | 3, 8 | AC-19 (потік 3), AC-20 (потік 8) |
+
+**Прапорці для `design`/`data-model`:**
+
+- Потоки 1–3 (написані `design`) називають конкретні технології в підписах учасників (`Брокер Mosquitto`, `Postgres rover`); нові потоки 4–8 використовують лише узагальнені ролі. Старі блоки не переписано, узгодити може лише ручна правка.
+- Потоки 4 і 8 використовують ролі `<client>` та `<external-system>` для Оператора і Ровера; окремого учасника §5 для Оператора немає (`ops/` не модуль).
+- Потік 5 припускає запит облікової втрати до представлення `session_gaps` (ADR-0004), а не до окремої таблиці; зберігається лише `sessions`.
+- Persist-нотатки для `data-model`: `sessions` (розібрані колонки, `raw`, `payload`, `received_at`, ключ `(mac, seq)`), `rejected` (`raw`, причина, `received_at`, позначка обрізання, сурогатний ключ).
+- Рішень, гідних окремого ADR, потоки не додали.
 
 ## 7. Deployment view
 
