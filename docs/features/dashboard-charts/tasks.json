@@ -82,7 +82,7 @@
         "tests/unit/test_charts_obstacles.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t4-domain-obstacles-series.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T5",

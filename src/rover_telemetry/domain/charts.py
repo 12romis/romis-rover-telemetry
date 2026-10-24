@@ -12,6 +12,7 @@ from rover_telemetry.domain.dashboard import (
     EndReason,
     GapNumber,
     StoredSession,
+    Total,
     classify_end_reason,
 )
 
@@ -138,3 +139,79 @@ def build_battery(axis: list[Slot]) -> BatteryBlock:
     drops = [(p.drop.number, p.seq) for p in points if isinstance(p.drop, Value)]
     largest = min(drops, key=lambda d: (-d[0], d[1]))[1] if drops else None
     return BatteryBlock(points=points, largest_drop_seq=largest)
+
+
+# --- Блок «Перешкоди» (AC-05…AC-09) ----------------------------------------------------------
+
+_MS_PER_S = 1000  # мс → с: контракт передає `tof_control_off_ms` у мілісекундах
+
+
+@dataclass(frozen=True)
+class ObstaclePoint:
+    """Найменша відстань і секунди вимкненого захисту; `sensor` — сире значення контракту."""
+
+    seq: int
+    is_gap: bool
+    min_mm: Point | None
+    sensor: str | None
+    control_off_s: Point | None
+
+
+@dataclass(frozen=True)
+class SensorCounters:
+    """Спрацювання датчиків за всіма виїздами; це не кількість утримань (AC-06), суми немає."""
+
+    left_front: Total
+    front: Total
+    right_front: Total
+    rear: Total
+
+
+@dataclass(frozen=True)
+class ObstacleBlock:
+    points: list[ObstaclePoint]
+    counters: SensorCounters
+    protection_off_any: bool
+
+
+def _obstacle_point(slot: Slot) -> ObstaclePoint:
+    s = slot.session
+    if s is None:
+        return ObstaclePoint(slot.seq, True, None, None, None)
+    min_mm: Point
+    if s.holds_min_mm is not None:
+        min_mm = Value(s.holds_min_mm)
+    elif s.holds_count == 0:
+        min_mm = Absent(AbsentReason.NO_HOLDS)  # виміряно, що утримань не було
+    else:
+        min_mm = Absent(AbsentReason.NOT_REPORTED, "відстань до перешкоди")
+    off: Point
+    if s.tof_control_off_ms is None:
+        off = Absent(AbsentReason.NOT_REPORTED, "секунди вимкненого захисту")
+    else:
+        off = Value(s.tof_control_off_ms / _MS_PER_S)
+    return ObstaclePoint(slot.seq, False, min_mm, s.holds_min_sensor, off)
+
+
+def _counter(sessions: list[StoredSession], name: str) -> Total:
+    """Сума лише за виїздами, що передали лічильник; жоден не передав — `None`, не нуль."""
+    known = [v for s in sessions if (v := getattr(s, name)) is not None]
+    return Total(
+        sum=sum(known) if known else None,
+        missing=len(sessions) - len(known),
+        total=len(sessions),
+    )
+
+
+def build_obstacles(axis: list[Slot]) -> ObstacleBlock:
+    sessions = [slot.session for slot in axis if slot.session is not None]
+    return ObstacleBlock(
+        points=[_obstacle_point(slot) for slot in axis],
+        counters=SensorCounters(
+            left_front=_counter(sessions, "holds_left_front"),
+            front=_counter(sessions, "holds_front"),
+            right_front=_counter(sessions, "holds_right_front"),
+            rear=_counter(sessions, "holds_rear"),
+        ),
+        protection_off_any=any((s.tof_control_off_ms or 0) > 0 for s in sessions),
+    )
