@@ -222,7 +222,7 @@
         "tests/conftest.py"
       ],
       "file": "docs/features/dashboard-summary/tasks/t10-tests-dashboard-e2e.md",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }

@@ -9,7 +9,7 @@ files_hint: ["tests/integration/test_dashboard_page.py", "tests/conftest.py"]
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
-status: "todo"
+status: "done"
 step: ""
 ---
 
