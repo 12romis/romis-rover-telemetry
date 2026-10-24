@@ -23,8 +23,5 @@ def make_environment() -> jinja2.Environment:
         absent_reason_label=formatting.absent_reason_label,
         sensor_label=formatting.sensor_label,
         side_label=formatting.side_label,
-        format_speed_mps=formatting.format_speed_mps,
-        format_rpm=formatting.format_rpm,
-        format_voltage_per_cell=formatting.format_voltage_per_cell,
     )
     return env

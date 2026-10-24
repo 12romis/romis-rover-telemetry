@@ -27,7 +27,7 @@
 | T17 | Додати інтеграційні тести сторінки на реальному Postgres: свіжість, дубль і відхилене, порожнє сховище, лише читання, затримка на 1000 виїздів | tests | 12romis | M | T2, T9, T10, T11 | blocked | GATE — latency p95 1.11 s > 1 s limit on loaded 1-CPU host (baseline page test 2.4 s) |
 | T18 | Review F8: у domain/charts.py `NO_STRAIGHT` лише коли moving_ms>0 і обидва encoders True, інакше `NOT_REPORTED` (ADR-0003) | domain | 12romis | S | — | done | COMMIT |
 | T19 | Review F7+F4: рендер вмісту блока й JSON під try у render_blocks; holds_count і тривалість виїзду в даних блока «Перешкоди» (формат format_duration_ms) | ports | 12romis | S | T18 | done | COMMIT |
-| T20 | Review F10+F14: видалити мертві форматери з дубльованими константами; прибрати тавтологічний статичний тест JS, прихований імпорт і type: ignore/noqa без обґрунтування | ui | 12romis | S | — | todo | — |
+| T20 | Review F10+F14: видалити мертві форматери з дубльованими константами; прибрати тавтологічний статичний тест JS, прихований імпорт і type: ignore/noqa без обґрунтування | ui | 12romis | S | — | done | COMMIT |
 | T21 | Review F11: видимий стан loading — прибрати hidden із заповнювача .chart, та сама висота, тест на видимість | ui | 12romis | S | — | todo | — |
 | T22 | Review F2+F3+F4+F13: динамічні межі осі напруги; slotStates для акумулятора та причина вздовж слотів; підказка «Перешкоди» за SCR-05; dispose() при частковому збої блока | ui | 12romis | S | T19, T21 | todo | — |
 | T23 | Review F6: тест AC-22 перевіряє картку «Виїздів» == 2 (підсумки), а не рядки таблиці | tests | 12romis | S | — | todo | — |

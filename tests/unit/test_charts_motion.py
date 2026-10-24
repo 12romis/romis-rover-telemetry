@@ -9,6 +9,7 @@ import pytest
 from rover_telemetry.domain.charts import (
     Absent,
     AbsentReason,
+    MotionPoint,
     Side,
     SpeedValue,
     Value,
@@ -32,7 +33,7 @@ FULL = {
 }
 
 
-def _point(stored_session: Factory, **fields: object):  # type: ignore[no-untyped-def]
+def _point(stored_session: Factory, **fields: object) -> MotionPoint:
     block = build_motion(build_axis([stored_session(seq=1, **fields)], []))
     return block.points[0]
 

@@ -436,7 +436,7 @@
         "tests/unit/test_charts_obstacles.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t20-fix-cleanup-dead-code-tests.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T21",

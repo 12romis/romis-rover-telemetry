@@ -49,7 +49,14 @@ def test_axis_is_named_session_number(source: str) -> None:
 
 
 def test_every_block_is_isolated_by_try_catch(source: str) -> None:
-    assert source.count("try {") >= 1 and "catch" in source
+    """Збій одного блока не зупиняє інші: `try/catch` стоїть у `startBlock`, що йде по блоку."""
+    body = re.search(r"function startBlock\(section\) \{(.*?)\n  \}\n", source, re.S)
+    assert body is not None
+    assert (
+        "try {" in body.group(1)
+        and "catch" in body.group(1)
+        and "unavailable(section)" in body.group(1)
+    )
 
 
 def test_is_one_iife_with_strict_mode(source: str) -> None:
@@ -58,16 +65,15 @@ def test_is_one_iife_with_strict_mode(source: str) -> None:
 
 
 def test_script_tags_in_page_are_local_and_deferred() -> None:
-    from collections.abc import Callable
+    from datetime import datetime
 
     from charts_helpers import page
 
-    from rover_telemetry.db.reading import Snapshot
     from rover_telemetry.domain.dashboard import StoredSession
 
-    make: Callable[..., StoredSession] = lambda **f: StoredSession(  # noqa: E731
-        mac="288485922c94", seq=1, received_at=__import__("datetime").datetime.now(), **f
-    )
+    def make(**fields: int) -> StoredSession:
+        return StoredSession(mac="288485922c94", seq=1, received_at=datetime.now(), **fields)
+
     html = page([make(voltage_start_mv=7000)])
     empty = page([])
 
@@ -75,4 +81,3 @@ def test_script_tags_in_page_are_local_and_deferred() -> None:
     assert '<script src="/static/charts.js" defer></script>' in html
     assert html.index("echarts.min.js") < html.index("charts.js")
     assert "charts.js" not in empty  # без блоків з даними скрипти не потрібні
-    assert Snapshot  # імпорт використано

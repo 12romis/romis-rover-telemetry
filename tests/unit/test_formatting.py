@@ -15,10 +15,7 @@ from rover_telemetry.web.formatting import (
     format_duration_ms,
     format_received,
     format_report,
-    format_rpm,
-    format_speed_mps,
     format_voltage_mv,
-    format_voltage_per_cell,
     rover_name,
     sensor_label,
     side_label,
@@ -196,33 +193,11 @@ def test_side_label(raw: str, label: str) -> None:
     assert side_label(raw) == label
 
 
-@pytest.mark.parametrize(
-    ("rpm", "mps", "rpm_text"),
-    [
-        (50.8, "0,117 м/с", "50,8 об/хв"),
-        (131.9, "0,304 м/с", "131,9 об/хв"),
-        (0.0, "0,000 м/с", "0,0 об/хв"),
-    ],
-)
-def test_speed_formats(rpm: float, mps: str, rpm_text: str) -> None:
-    assert format_speed_mps(rpm) == mps
-    assert format_rpm(rpm) == rpm_text
-
-
-def test_voltage_per_cell() -> None:
-    assert format_voltage_per_cell(7580) == "3,79 В на банку"
-    assert format_voltage_per_cell(7691) == "3,85 В на банку"  # 3,8455 → 3,85
-    assert format_voltage_per_cell(None) is None
-
-
 def test_chart_formatters_registered_in_environment() -> None:
     env = make_environment()
     for name in (
         "absent_reason_label",
         "sensor_label",
         "side_label",
-        "format_speed_mps",
-        "format_rpm",
-        "format_voltage_per_cell",
     ):
         assert name in env.globals, name

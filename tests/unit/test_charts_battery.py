@@ -9,6 +9,7 @@ import pytest
 from rover_telemetry.domain.charts import (
     Absent,
     AbsentReason,
+    BatteryPoint,
     Value,
     build_axis,
     build_battery,
@@ -19,7 +20,7 @@ Factory = Callable[..., StoredSession]
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 
 
-def _battery(stored_session: Factory, **fields: object):  # type: ignore[no-untyped-def]
+def _battery(stored_session: Factory, **fields: object) -> BatteryPoint:
     session = stored_session(seq=1, **fields)
     block = build_battery(build_axis([session], []))
     return block.points[0]

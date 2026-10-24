@@ -122,20 +122,3 @@ def absent_reason_label(absent: Absent) -> str:
         side = side_label(absent.subject)
         return f"на борту не було енкодера ({side})" if side else "на борту не було енкодера"
     return f"ровер не передав: {absent.subject}" if absent.subject else "ровер не передав"
-
-
-def format_speed_mps(rpm: float) -> str:
-    """Лінійна швидкість: три знаки, кома; нуль — виміряне значення `0,000 м/с`."""
-    mps = Decimal(str(rpm)) * Decimal("0.1382") / 60
-    return f"{_decimal(mps, 3, keep_zeros=True)} м/с"
-
-
-def format_rpm(rpm: float) -> str:
-    return f"{_decimal(Decimal(str(rpm)), 1, keep_zeros=True)} об/хв"
-
-
-def format_voltage_per_cell(mv: int | None) -> str | None:
-    """Напруга однієї банки: половина показаної (рішення власника №8)."""
-    if mv is None:
-        return None
-    return f"{_decimal(Decimal(mv) / 2000, 2, keep_zeros=True)} В на банку"

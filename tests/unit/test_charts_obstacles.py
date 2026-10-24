@@ -7,6 +7,7 @@ import pytest
 from rover_telemetry.domain.charts import (
     Absent,
     AbsentReason,
+    ObstaclePoint,
     Value,
     build_axis,
     build_obstacles,
@@ -16,7 +17,7 @@ from rover_telemetry.domain.dashboard import GapNumber, StoredSession, Total
 Factory = Callable[..., StoredSession]
 
 
-def _point(stored_session: Factory, **fields: object):  # type: ignore[no-untyped-def]
+def _point(stored_session: Factory, **fields: object) -> ObstaclePoint:
     block = build_obstacles(build_axis([stored_session(seq=1, **fields)], []))
     return block.points[0]
 
