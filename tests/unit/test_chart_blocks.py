@@ -240,3 +240,53 @@ def test_data_shell_slots_gaps_and_constants(stored_session: Factory) -> None:
 def test_page_has_only_get_route_for_page(client: TestClient) -> None:
     serve(Snapshot([], []))
     assert client.post("/").status_code == 405
+
+
+def _bad_data(snapshot: Snapshot) -> BlockView:
+    """Несеріалізовне в JSON значення: `tojson` упав би під час рендеру всієї сторінки."""
+    return BlockView("_description.html", {}, {"block": "x", "n": datetime(2026, 10, 24)})
+
+
+def _bad_template(snapshot: Snapshot) -> BlockView:
+    return BlockView("_немає_такого_шаблону.html", {}, {"block": "x"})
+
+
+@pytest.mark.parametrize("build", [_bad_data, _bad_template])
+def test_ac19_render_failure_of_one_block_is_isolated(
+    build: Callable[[Snapshot], BlockView],
+    monkeypatch: pytest.MonkeyPatch,
+    stored_session: Factory,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Review F7: ізоляція охоплює рендер вмісту блока й JSON, а не лише `spec.build`."""
+    specs = _specs()
+    specs[1] = BlockSpec("obstacles", "Перешкоди", "Опис obstacles.", build)
+    monkeypatch.setattr(chart_blocks, "BLOCKS", specs)
+
+    with caplog.at_level(logging.ERROR, logger="rover_telemetry.web"):
+        blocks = render_blocks(Snapshot([stored_session(seq=1)], []))
+
+    assert {b.key: b.state for b in blocks} == {
+        "battery": "ok",
+        "obstacles": "error",
+        "motion": "ok",
+    }
+    assert "chart_block_failed block=obstacles" in caplog.text
+    assert next(b for b in blocks if b.key == "obstacles").view is None
+
+
+def test_ac19_page_survives_block_whose_data_cannot_be_serialized(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    stored_session: Factory,
+) -> None:
+    specs = _specs()
+    specs[1] = BlockSpec("obstacles", "Перешкоди", "Опис obstacles.", _bad_data)
+    monkeypatch.setattr(chart_blocks, "BLOCKS", specs)
+    serve(Snapshot([stored_session(seq=2)], []))
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.text.count(UNAVAILABLE) == 1
+    assert response.text.count('data-state="ok"') == 2

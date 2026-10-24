@@ -11,12 +11,16 @@
 плюс ключі, специфічні для блока. `received` — «отримано» за київським часом, не час виїзду.
 """
 
+import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
 from typing import Any
+
+from jinja2 import Environment
+from markupsafe import Markup
 
 from rover_telemetry.db.reading import Snapshot
 from rover_telemetry.domain import charts
@@ -39,11 +43,13 @@ from rover_telemetry.domain.dashboard import EndReason, Total, build_summary
 from rover_telemetry.web.formatting import (
     absent_reason_label,
     end_reason_label,
+    format_duration_ms,
     format_received,
     known_sensor,
     sensor_label,
     side_label,
 )
+from rover_telemetry.web.templating import make_environment
 
 logger = logging.getLogger("rover_telemetry.web")
 
@@ -67,13 +73,14 @@ class BlockSpec:
 
 @dataclass(frozen=True)
 class RenderedBlock:
-    """Стан блока на сторінці: `ok` (є `view`), `empty` (виїздів немає) або `error`."""
+    """Стан блока на сторінці: `ok` (є `view` і готовий `content`), `empty` або `error`."""
 
     key: str
     title: str
     description: str
     state: str
     view: BlockView | None
+    content: Markup | None = None
 
 
 def _number(point: Point | None) -> float | None:
@@ -238,6 +245,15 @@ def build_obstacles_block(snapshot: Snapshot) -> BlockView:
             for p in block.points
         ],
         "control_off_s": [_number(p.control_off_s) for p in block.points],
+        # Підказка (SCR-05): утримань (нуль — виміряний), захист і тривалість виїзду текстом.
+        "holds_count": [slot.session.holds_count if slot.session else None for slot in axis],
+        "control_off_text": [
+            format_duration_ms(slot.session.tof_control_off_ms) if slot.session else None
+            for slot in axis
+        ],
+        "duration_text": [
+            format_duration_ms(slot.session.duration_ms) if slot.session else None for slot in axis
+        ],
         "reasons": _obstacle_reasons(points),
     }
     context = {
@@ -429,6 +445,17 @@ def block_data_shell(key: str, axis: list[Slot]) -> dict[str, Any]:
     }
 
 
+@lru_cache(maxsize=1)
+def _environment() -> Environment:
+    return make_environment()
+
+
+def _render_view(view: BlockView) -> Markup:
+    """Вміст блока й JSON рендеряться тут, під межею ізоляції, а не під час рендеру сторінки."""
+    json.dumps(view.data, allow_nan=False)  # той самий збій, що дав би `tojson` на сторінці
+    return Markup(_environment().get_template(view.template).render(ctx=view.context))
+
+
 def render_blocks(snapshot: Snapshot) -> list[RenderedBlock]:
     """Без виїздів усі блоки `empty` і не будуються (AC-17); збій блока — лише `error` (AC-19)."""
     blocks: list[RenderedBlock] = []
@@ -438,9 +465,10 @@ def render_blocks(snapshot: Snapshot) -> list[RenderedBlock]:
             continue
         try:
             view = spec.build(snapshot)
+            content = _render_view(view)
         except Exception as exc:  # межа ізоляції: причина лише в лог, на сторінку — повідомлення
             logger.error("chart_block_failed block=%s error_class=%s", spec.key, type(exc).__name__)
             blocks.append(RenderedBlock(spec.key, spec.title, spec.description, "error", None))
             continue
-        blocks.append(RenderedBlock(spec.key, spec.title, spec.description, "ok", view))
+        blocks.append(RenderedBlock(spec.key, spec.title, spec.description, "ok", view, content))
     return blocks

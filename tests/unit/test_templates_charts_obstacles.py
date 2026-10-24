@@ -275,3 +275,33 @@ def test_real_fixtures_render(n: int, stored_session: Factory) -> None:
     )
 
     assert data_of(html)["slots"][0]["seq"] == n
+
+
+def test_ac08_data_carries_holds_count_and_duration_per_slot(stored_session: Factory) -> None:
+    """Review F4, SCR-05: «Утримань: N» (нуль — виміряний) і тривалість виїзду."""
+    html = page(
+        [
+            stored_session(seq=1, **{**HOLDS, "holds_count": 47, "duration_ms": 657000}),
+            stored_session(seq=2, **{**HOLDS, "holds_count": 0, "duration_ms": 8300}),
+            stored_session(seq=3, **{**HOLDS, "holds_count": None, "duration_ms": None}),
+        ],
+        [GapNumber("288485922c94", 4)],
+    )
+    data = data_of(html)
+
+    assert data["holds_count"] == [47, 0, None, None]
+    assert data["duration_text"] == ["10 хв 57 с", "8,3 с", None, None]
+
+
+def test_ac09_data_carries_control_off_as_duration_text(stored_session: Factory) -> None:
+    """Review F4: 475 800 мс показується як «7 хв 56 с», а не «475,8 с»."""
+    html = page(
+        [
+            stored_session(seq=1, **{**HOLDS, "tof_control_off_ms": 475800}),
+            stored_session(seq=2, **{**HOLDS, "tof_control_off_ms": 1500}),
+            stored_session(seq=3, **{**HOLDS, "tof_control_off_ms": 0}),
+            stored_session(seq=4, **{**HOLDS, "tof_control_off_ms": None}),
+        ]
+    )
+
+    assert data_of(html)["control_off_text"] == ["7 хв 56 с", "1,5 с", "0 с", None]

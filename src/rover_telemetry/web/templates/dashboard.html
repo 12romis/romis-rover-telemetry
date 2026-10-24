@@ -9,7 +9,7 @@
 {% include '_summary.html' %}
 {% for block in blocks|default([]) %}
 {% call chart_block(block.key, block.title, block.state, block.view.data if block.view else none, block.description) %}
-{% with ctx = block.view.context %}{% include block.view.template %}{% endwith %}
+{{ block.content }}
 {% endcall %}
 {% endfor %}
 {% if state == 'empty' %}

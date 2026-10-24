@@ -414,7 +414,7 @@
         "tests/unit/test_templates_charts_obstacles.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t19-fix-block-isolation-obstacle-data.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T20",
