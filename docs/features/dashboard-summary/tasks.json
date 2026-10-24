@@ -1,0 +1,228 @@
+{
+  "slug": "dashboard-summary",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Додати в domain типи виїзду, підсумки з Total(sum, missing) і класифікацію причини завершення",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-01",
+        "AC-04",
+        "AC-07",
+        "AC-11"
+      ],
+      "dod": "юніт-тести підсумків на фікстурах seq 26/27, порожньому наборі й «без пробігу» проходять без Docker",
+      "files_hint": [
+        "src/rover_telemetry/domain/dashboard.py",
+        "tests/unit/test_dashboard_summary.py",
+        "tests/conftest.py"
+      ],
+      "file": "docs/features/dashboard-summary/tasks/t1-domain-summary.md",
+      "status": "done"
+    },
+    {
+      "id": "T2",
+      "title": "Додати в domain хронологію виїздів із позначками номерів без виїзду",
+      "layer": "domain",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-08",
+        "AC-09",
+        "AC-16"
+      ],
+      "dod": "юніт-тест хронології: порядок seq ↓, позначки пропусків на своїх місцях, `received_at` порядок не змінює",
+      "files_hint": [
+        "src/rover_telemetry/domain/timeline.py",
+        "tests/unit/test_dashboard_timeline.py"
+      ],
+      "file": "docs/features/dashboard-summary/tasks/t2-domain-timeline.md",
+      "status": "done"
+    },
+    {
+      "id": "T3",
+      "title": "Додати читання одного знімка лише для читання (db/reading.py) і налаштування таймаутів web",
+      "layer": "infra",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-08",
+        "AC-14",
+        "AC-16"
+      ],
+      "dod": "інтеграційний тест на реальному Postgres: один READ ONLY-знімок виїздів без raw і номерів без виїзду; запис у знімку відхиляється",
+      "files_hint": [
+        "src/rover_telemetry/db/reading.py",
+        "src/rover_telemetry/config.py",
+        ".env.example",
+        "tests/integration/test_reading.py",
+        "tests/unit/test_config.py"
+      ],
+      "file": "docs/features/dashboard-summary/tasks/t3-infra-read-snapshot.md",
+      "status": "done"
+    },
+    {
+      "id": "T4",
+      "title": "Додати web/formatting.py: «отримано» за Києвом, одиниці, підписи причин, назва ровера, текст звіту",
+      "layer": "ui",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-06",
+        "AC-09"
+      ],
+      "dod": "юніт-тести форматування: нуль ≠ None, одиниці з кому, Europe/Kyiv з переходом 2026-10-25, підписи причин",
+      "files_hint": [
+        "src/rover_telemetry/web/formatting.py",
+        "pyproject.toml",
+        "tests/unit/test_formatting.py"
+      ],
+      "file": "docs/features/dashboard-summary/tasks/t4-ui-formatting.md",
+      "status": "done"
+    },
+    {
+      "id": "T5",
+      "title": "Створити базовий макет, токени CSS, макроси «немає даних»/картка/повідомлення та блок «Опис»",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-02",
+        "AC-10"
+      ],
+      "dod": "юніт-тест рендеру: опис з 3 визначеннями, «немає даних» відрізняється від 0, у шаблонах і CSS немає зовнішніх адрес чи скриптів",
+      "files_hint": [
+        "src/rover_telemetry/web/templates/base.html",
+        "src/rover_telemetry/web/templates/_macros.html",
+        "src/rover_telemetry/web/templates/_description.html",
+        "src/rover_telemetry/web/static/app.css",
+        "src/rover_telemetry/web/templating.py",
+        "tests/unit/test_templates_base.py",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/dashboard-summary/tasks/t5-ui-base-layout.md",
+      "status": "done"
+    },
+    {
+      "id": "T6",
+      "title": "Побудувати сторінку dashboard.html: опис, вісім карток підсумків, стани empty і error",
+      "layer": "ui",
+      "deps": [
+        "T1",
+        "T4",
+        "T5"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-07",
+        "AC-11"
+      ],
+      "dod": "рендер-тест підсумків: вісім карток у порядку AC-01, нуль проти «немає даних», підпис «без даних у N з M», стани empty/error",
+      "files_hint": [
+        "src/rover_telemetry/web/templates/dashboard.html",
+        "src/rover_telemetry/web/templates/_summary.html",
+        "src/rover_telemetry/web/templates/_sessions.html",
+        "src/rover_telemetry/web/templating.py",
+        "tests/unit/test_templates_summary.py"
+      ],
+      "file": "docs/features/dashboard-summary/tasks/t6-ui-summary-block.md",
+      "status": "done"
+    },
+    {
+      "id": "T7",
+      "title": "Побудувати список виїздів: розгортуваний рядок (details), позначка пропуску, блок повного звіту",
+      "layer": "ui",
+      "deps": [
+        "T2",
+        "T4",
+        "T6"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-05",
+        "AC-06",
+        "AC-08",
+        "AC-09"
+      ],
+      "dod": "рендер-тест списку: <details> на виїзд з усіма полями AC-03, нуль проти «немає даних», позначки пропусків, XSS екрановано",
+      "files_hint": [
+        "src/rover_telemetry/web/templates/_sessions.html",
+        "src/rover_telemetry/web/templates/_macros.html",
+        "src/rover_telemetry/web/static/app.css",
+        "tests/unit/test_templates_sessions.py",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/dashboard-summary/tasks/t7-ui-sessions-list.md",
+      "status": "done"
+    },
+    {
+      "id": "T8",
+      "title": "Додати маршрут GET / з читанням знімка, 503 при недоступному сховищі, заголовками безпеки і /static",
+      "layer": "ports",
+      "deps": [
+        "T3",
+        "T6",
+        "T7"
+      ],
+      "acs": [
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "юніт-тести маршруту: 200 для ok/empty, 503 без технічних подробиць, 405 на запис, заголовки безпеки",
+      "files_hint": [
+        "src/rover_telemetry/web/app.py",
+        "tests/unit/test_dashboard_route.py",
+        "tests/unit/test_smoke.py"
+      ],
+      "file": "docs/features/dashboard-summary/tasks/t8-ports-dashboard-route.md",
+      "status": "done"
+    },
+    {
+      "id": "T9",
+      "title": "Підготувати публікацію: alias rover-web у compose, фрагмент Caddyfile, runbook і скрипт перевірки",
+      "layer": "wiring",
+      "deps": [
+        "T8"
+      ],
+      "acs": [
+        "AC-15"
+      ],
+      "dod": "compose без опублікованих портів з alias rover-web, runbook з Caddy/DNS/CONNECTION LIMIT/security review і скрипт перевірки",
+      "files_hint": [
+        "docker-compose.yml",
+        "ops/README.md",
+        "ops/verify_dashboard.sh",
+        "tests/integration/test_ops_dashboard.py"
+      ],
+      "file": "docs/features/dashboard-summary/tasks/t9-wiring-publish-ops.md",
+      "status": "done"
+    },
+    {
+      "id": "T10",
+      "title": "Додати інтеграційні тести сторінки на реальному Postgres: свіжість, дубль, запис, затримка, зовнішні запити",
+      "layer": "tests",
+      "deps": [
+        "T8"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-14",
+        "AC-17",
+        "AC-18"
+      ],
+      "dod": "інтеграційні тести на реальному Postgres: AC-17 свіжість, AC-18 дубль, AC-14 запис, p95 ≤ 1 с для 1000 виїздів, немає зовнішніх запитів",
+      "files_hint": [
+        "tests/integration/test_dashboard_page.py",
+        "tests/conftest.py"
+      ],
+      "file": "docs/features/dashboard-summary/tasks/t10-tests-dashboard-e2e.md",
+      "status": "done"
+    }
+  ]
+}

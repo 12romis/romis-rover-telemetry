@@ -1,0 +1,49 @@
+{# Порожній стан «немає даних»: курсив, окремий колір і текст — не лише колір (AC-06). #}
+{% macro no_data() %}<em class="no-data">немає даних</em>{% endmacro %}
+
+{# Значення або «немає даних». Перевірка `is none`, не truthiness: виміряний 0 — це число. #}
+{% macro value_or_no_data(value) %}{% if value is none %}{{ no_data() }}{% else %}{{ value }}{% endif %}{% endmacro %}
+
+{% macro metric_card(label, value, note=None, wide=False) %}
+<div class="card{% if wide %} card--wide{% endif %}">
+  <div class="card__label">{{ label }}</div>
+  <div class="card__value">{{ value_or_no_data(value) }}</div>
+  {% if note is not none %}<div class="card__note">{{ note }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro state_message(text) %}<p class="state-message" role="status">{{ text }}</p>{% endmacro %}
+
+{% macro field(label, value) %}
+<div class="field"><dt>{{ label }}</dt><dd>{{ value_or_no_data(value) }}</dd></div>
+{% endmacro %}
+
+{# Повний звіт так, як його надіслав ровер (з payload); екранує лише autoescape (SAD §8). #}
+{% macro report_block(payload) %}
+<pre class="report">{{ format_report(payload) }}</pre>
+{% endmacro %}
+
+{# Виїзд — нативний <details>, без скриптів (feature ADR-0002); поля AC-03. #}
+{% macro session_row(session) %}
+<details class="session">
+  <summary class="session__head">{{ rover_name(session.mac) }} · Виїзд № {{ session.seq }}</summary>
+  <dl class="fields">
+    {{ field('Отримано (за київським часом)', format_received(session.received_at)) }}
+    {{ field('Причина завершення', end_reason_label(session.end_reason)) }}
+    {{ field('Тривалість', format_duration_ms(session.duration_ms)) }}
+    {{ field('Час руху', format_duration_ms(session.moving_ms)) }}
+    {{ field('Пробіг', format_distance_cm(session.distance_cm)) }}
+    {{ field('Утримань', session.holds_count) }}
+    {{ field('Напруга на початку', format_voltage_mv(session.voltage_start_mv)) }}
+    {{ field('Мінімальна напруга', format_voltage_mv(session.voltage_min_mv)) }}
+    {{ field('Напруга наприкінці', format_voltage_mv(session.voltage_end_mv)) }}
+    {{ field('Прошивка', session.fw_version) }}
+  </dl>
+  {{ report_block(session.payload) }}
+</details>
+{% endmacro %}
+
+{# Номер без виїзду (AC-08, AC-16): нерозгортуваний, однаковий для втраченого й відхиленого. #}
+{% macro gap_marker(gap) %}
+<div class="gap">{{ rover_name(gap.mac) }} · № {{ gap.seq }} — виїзду з цим номером немає</div>
+{% endmacro %}

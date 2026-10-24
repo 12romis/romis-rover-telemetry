@@ -49,11 +49,19 @@ class IngestSettings:
 
 @dataclass(frozen=True)
 class WebSettings:
-    """Налаштування дашборду: лише рядок підключення ролі `viewer`."""
+    """Налаштування дашборду: рядок підключення ролі `viewer` і таймаути читання."""
 
     database_url: str = field(repr=False)
+    # Таймаути з'єднання й запиту — вибір розбиття задач (SAD §4: менші за таймаут Caddy, щоб
+    # недоступне сховище давало повідомлення AC-12, а не зависання), а не вимога специфікації.
+    db_connect_timeout_s: float = 3.0
+    db_statement_timeout_s: float = 5.0
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "WebSettings":
         env = os.environ if env is None else env
-        return cls(database_url=_required(env, "WEB_DATABASE_URL"))
+        return cls(
+            database_url=_required(env, "WEB_DATABASE_URL"),
+            db_connect_timeout_s=float(env.get("WEB_DB_CONNECT_TIMEOUT_S") or "3"),
+            db_statement_timeout_s=float(env.get("WEB_DB_STATEMENT_TIMEOUT_S") or "5"),
+        )

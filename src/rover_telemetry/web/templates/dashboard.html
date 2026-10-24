@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import state_message %}
+{% block content %}
+<h1>Телеметрія ровера</h1>
+{% include '_description.html' %}
+{% if state == 'error' %}
+{{ state_message('Дані тимчасово недоступні. Спробуйте оновити сторінку трохи пізніше.') }}
+{% else %}
+{% include '_summary.html' %}
+{% if state == 'empty' %}
+{{ state_message('Виїздів ще немає.') }}
+{% else %}
+{% include '_sessions.html' %}
+{% endif %}
+{% endif %}
+{% endblock %}

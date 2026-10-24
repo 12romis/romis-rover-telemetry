@@ -23,7 +23,10 @@ services:
     environment:
       WEB_DATABASE_URL: ${WEB_DATABASE_URL:-}
     restart: unless-stopped
-    networks: [infra]
+    networks:
+      infra:
+        # Ім'я `web` у спільній мережі infra може збігтися з чужим сервісом; Caddy йде на alias.
+        aliases: [rover-web]
 
 networks:
   infra:
