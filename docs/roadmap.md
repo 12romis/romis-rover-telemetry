@@ -21,7 +21,7 @@ updated_at: "2026-10-24"
 |---|---|---|:---:|---|
 | 1 | Скелет проєкту: пакет, pytest із фікстурами, міграції, ruff/mypy, Docker, CI | `docs/architecture-map.md` Module inventory, `docs/features/_scaffold/tasks.json` | M | shipped |
 | 2 | Звіти зберігаються: розбір за контрактом, БД `rover` (`sessions`, `rejected`, ролі), ingest, звужений ACL брокера і запуск у проді з перевіркою реального звіту | `docs/idea-brief.md` §7 Recommendation | M | shipped → [`docs/features/ingest/`](features/ingest/spec.md) |
-| 3 | Публічний дашборд: дизайн-канон, каркас `web`, домен через Caddy, блок «Підсумки + таблиця виїздів» | `docs/idea-brief.md` §5 Out of scope | M | spec'd → [`docs/features/dashboard-summary/`](features/dashboard-summary/spec.md) |
+| 3 | Публічний дашборд: дизайн-канон, каркас `web`, домен через Caddy, блок «Підсумки + таблиця виїздів» | `docs/idea-brief.md` §5 Out of scope | M | building → [`docs/features/dashboard-summary/`](features/dashboard-summary/spec.md) |
 | 4 | Блок «Акумулятор»: старт, мінімум, кінець, просадка по виїздах | `docs/idea-brief.md` §5 Out of scope | M | idea |
 | 5 | Блок «Перешкоди»: схема ровера з 4 датчиками (`holds.by_sensor`) і розподіл `holds.min_mm` проти порога | `docs/idea-brief.md` §5 Out of scope | L | idea |
 | 6 | Блок «Рух і борти»: лівий проти правого, швидкості, сесії без енкодера | `docs/idea-brief.md` §5 Out of scope | M | idea |
