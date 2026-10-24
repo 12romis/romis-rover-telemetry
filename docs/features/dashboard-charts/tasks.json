@@ -352,7 +352,7 @@
         "tests/e2e/conftest.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t16-tests-e2e-page.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T17",
