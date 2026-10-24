@@ -54,10 +54,21 @@ def test_web_settings_requires_its_own_url() -> None:
         WebSettings.from_env({"INGEST_DATABASE_URL": "x"})
 
 
+def test_web_settings_timeouts() -> None:
+    """Таймаути з'єднання й запиту — вибір розбиття задач (SAD §4), не вимога специфікації."""
+    env = {"WEB_DATABASE_URL": "postgresql://viewer@h/rover"}
+    s = WebSettings.from_env(env)
+    assert (s.db_connect_timeout_s, s.db_statement_timeout_s) == (3.0, 5.0)
+    s = WebSettings.from_env(
+        {**env, "WEB_DB_CONNECT_TIMEOUT_S": "1", "WEB_DB_STATEMENT_TIMEOUT_S": "2.5"}
+    )
+    assert (s.db_connect_timeout_s, s.db_statement_timeout_s) == (1.0, 2.5)
+
+
 def test_services_do_not_see_each_others_database_url() -> None:
     ingest_fields = {f.name for f in dataclasses.fields(IngestSettings)}
     web_fields = {f.name for f in dataclasses.fields(WebSettings)}
-    assert web_fields == {"database_url"}
+    assert web_fields == {"database_url", "db_connect_timeout_s", "db_statement_timeout_s"}
     assert "mqtt_password" in ingest_fields
     ingest = IngestSettings.from_env({**INGEST_ENV, "WEB_DATABASE_URL": "postgresql://v@h/r"})
     assert "WEB_DATABASE_URL" not in repr(ingest)

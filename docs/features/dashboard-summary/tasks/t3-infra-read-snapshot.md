@@ -9,7 +9,7 @@ files_hint: ["src/rover_telemetry/db/reading.py", "src/rover_telemetry/config.py
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
-status: "todo"
+status: "done"
 step: ""
 ---
 
