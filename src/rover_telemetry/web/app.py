@@ -38,6 +38,9 @@ async def security_headers(
 ) -> Response:
     response = await call_next(request)
     response.headers.update(SECURITY_HEADERS)
+    if request.url.path.startswith("/static/"):
+        # Закріплені файли перевіряються за ETag при кожному відкритті; HTML лишається `no-store`.
+        response.headers["Cache-Control"] = "no-cache"
     return response
 
 

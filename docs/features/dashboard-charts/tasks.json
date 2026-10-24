@@ -145,7 +145,7 @@
         "tests/unit/test_dashboard_route.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t7-infra-vendor-echarts-csp-smoke.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T8",
