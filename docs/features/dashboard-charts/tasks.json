@@ -125,7 +125,7 @@
         "tests/unit/test_formatting.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t6-ui-formatting-labels.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T7",

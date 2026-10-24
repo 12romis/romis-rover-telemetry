@@ -7,15 +7,23 @@ from typing import Any
 
 import pytest
 
+from rover_telemetry.domain.charts import Absent, AbsentReason
 from rover_telemetry.web.formatting import (
+    absent_reason_label,
     end_reason_label,
     format_distance_cm,
     format_duration_ms,
     format_received,
     format_report,
+    format_rpm,
+    format_speed_mps,
     format_voltage_mv,
+    format_voltage_per_cell,
     rover_name,
+    sensor_label,
+    side_label,
 )
+from rover_telemetry.web.templating import make_environment
 
 
 @pytest.mark.parametrize(
@@ -113,3 +121,108 @@ def test_format_report_keeps_order_nulls_and_does_not_escape(
     assert text.index('"event"') < text.index('"mac"')
     assert format_report({"x": "<b>&"}) == '{\n  "x": "<b>&"\n}'
     assert format_report({"т": "я"}) == '{\n  "т": "я"\n}'  # ensure_ascii=False
+
+
+# --- Підписи для графіків (feature dashboard-charts) ---
+
+
+@pytest.mark.parametrize(
+    ("absent", "expected"),
+    [
+        (Absent(AbsentReason.NOT_MOVING), "ровер не їхав"),
+        (Absent(AbsentReason.NO_STRAIGHT), "прямої ділянки не було"),
+        (Absent(AbsentReason.NO_HOLDS), "утримань не було"),
+        (Absent(AbsentReason.NO_ENCODER), "на борту не було енкодера"),
+        (Absent(AbsentReason.NO_ENCODER, "left"), "на борту не було енкодера (лівий борт)"),
+        (Absent(AbsentReason.NO_ENCODER, "right"), "на борту не було енкодера (правий борт)"),
+        (
+            Absent(AbsentReason.NO_ENCODER, "left,right"),
+            "на борту не було енкодера (обидва борти)",
+        ),
+        (Absent(AbsentReason.NOT_REPORTED), "ровер не передав"),
+        (
+            Absent(AbsentReason.NOT_REPORTED, "мінімальна напруга"),
+            "ровер не передав: мінімальна напруга",
+        ),
+    ],
+)
+def test_absent_reason_label(absent: Absent, expected: str) -> None:
+    assert absent_reason_label(absent) == expected
+
+
+def test_every_absent_reason_has_a_label() -> None:
+    """Нова причина без підпису не може потрапити на сторінку."""
+    for reason in AbsentReason:
+        assert absent_reason_label(Absent(reason)).strip(), reason
+
+
+def test_html_in_subject_stays_text() -> None:
+    label = absent_reason_label(Absent(AbsentReason.NOT_REPORTED, "<b>x</b>"))
+    env = make_environment()
+
+    rendered = env.from_string("{{ absent_reason_label(a) }}").render(
+        a=Absent(AbsentReason.NOT_REPORTED, "<b>x</b>"), absent_reason_label=absent_reason_label
+    )
+
+    assert "<b>" in label  # функція не екранує: це справа autoescape
+    assert "<b>" not in rendered and "&lt;b&gt;" in rendered
+
+
+@pytest.mark.parametrize(
+    ("raw", "label"),
+    [
+        ("left_front", "лівий передній"),
+        ("front", "передній"),
+        ("right_front", "правий передній"),
+        ("rear", "задній"),
+        ("<b>x</b>", "Інший датчик"),
+        ("", "Інший датчик"),
+    ],
+)
+def test_sensor_label(raw: str, label: str) -> None:
+    assert sensor_label(raw) == label
+
+
+@pytest.mark.parametrize(
+    ("raw", "label"),
+    [
+        ("left", "лівий борт"),
+        ("right", "правий борт"),
+        ("left,right", "обидва борти"),
+        ("other", ""),
+    ],
+)
+def test_side_label(raw: str, label: str) -> None:
+    assert side_label(raw) == label
+
+
+@pytest.mark.parametrize(
+    ("rpm", "mps", "rpm_text"),
+    [
+        (50.8, "0,117 м/с", "50,8 об/хв"),
+        (131.9, "0,304 м/с", "131,9 об/хв"),
+        (0.0, "0,000 м/с", "0,0 об/хв"),
+    ],
+)
+def test_speed_formats(rpm: float, mps: str, rpm_text: str) -> None:
+    assert format_speed_mps(rpm) == mps
+    assert format_rpm(rpm) == rpm_text
+
+
+def test_voltage_per_cell() -> None:
+    assert format_voltage_per_cell(7580) == "3,79 В на банку"
+    assert format_voltage_per_cell(7691) == "3,85 В на банку"  # 3,8455 → 3,85
+    assert format_voltage_per_cell(None) is None
+
+
+def test_chart_formatters_registered_in_environment() -> None:
+    env = make_environment()
+    for name in (
+        "absent_reason_label",
+        "sensor_label",
+        "side_label",
+        "format_speed_mps",
+        "format_rpm",
+        "format_voltage_per_cell",
+    ):
+        assert name in env.globals, name
