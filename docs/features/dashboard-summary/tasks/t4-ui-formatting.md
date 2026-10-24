@@ -9,7 +9,7 @@ files_hint: ["src/rover_telemetry/web/formatting.py", "pyproject.toml", "tests/u
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
-status: "todo"
+status: "done"
 step: ""
 ---
 

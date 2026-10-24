@@ -84,7 +84,7 @@
         "tests/unit/test_formatting.py"
       ],
       "file": "docs/features/dashboard-summary/tasks/t4-ui-formatting.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T5",
