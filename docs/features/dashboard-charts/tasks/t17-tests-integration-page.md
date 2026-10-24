@@ -9,8 +9,8 @@ files_hint: ["tests/integration/test_charts_page.py", "tests/integration/test_ch
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "blocked"
+step: "GATE — latency p95 1.11 s > 1 s limit on loaded 1-CPU host (baseline page test 2.4 s)"
 ---
 
 <!-- Принцип файлу: вбудований зріз, що потрібен задачі, з підписом джерела; посилання — запасний шлях. Кожен шматок має підпис `<file> §<section>, <id>, verbatim|abridged`. Джерело завжди важливіше за вбудовану копію. -->

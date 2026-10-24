@@ -14,6 +14,8 @@
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
+from functools import lru_cache
 from typing import Any
 
 from rover_telemetry.db.reading import Snapshot
@@ -282,15 +284,13 @@ _FASTER_LABELS = {
 
 def _speed_numbers(avg: SpeedPoint | None, peak: SpeedPoint | None) -> dict[str, float | None]:
     """Швидкості борту; відсутнє значення — `null`, нуль лишається числом."""
-
-    def pick(point: SpeedPoint | None, field: str) -> float | None:
-        return getattr(point, field) if isinstance(point, SpeedValue) else None
-
+    a = avg if isinstance(avg, SpeedValue) else None
+    p = peak if isinstance(peak, SpeedValue) else None
     return {
-        "avg_rpm": pick(avg, "rpm"),
-        "peak_rpm": pick(peak, "rpm"),
-        "avg_mps": pick(avg, "mps"),
-        "peak_mps": pick(peak, "mps"),
+        "avg_rpm": a.rpm if a else None,
+        "peak_rpm": p.rpm if p else None,
+        "avg_mps": a.mps if a else None,
+        "peak_mps": p.mps if p else None,
     }
 
 
@@ -402,6 +402,12 @@ BLOCKS: list[BlockSpec] = [
 ]
 
 
+@lru_cache(maxsize=4096)
+def _received(moment: datetime) -> str | None:
+    """«Отримано» одного виїзду форматується раз на всі три блоки (1000 виїздів × 3 слоти)."""
+    return format_received(moment)
+
+
 def block_data_shell(key: str, axis: list[Slot]) -> dict[str, Any]:
     return {
         "block": key,
@@ -409,7 +415,7 @@ def block_data_shell(key: str, axis: list[Slot]) -> dict[str, Any]:
             {
                 "seq": slot.seq,
                 "gap": slot.session is None,
-                "received": format_received(slot.session.received_at) if slot.session else None,
+                "received": _received(slot.session.received_at) if slot.session else None,
             }
             for slot in axis
         ],
