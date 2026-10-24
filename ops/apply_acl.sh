@@ -2,7 +2,10 @@
 # Змінює ACL брокера за ops/acl.narrow.template, не чіпаючи чужих користувачів (admin, beetroot).
 # Запускає Оператор на VPS.
 #   apply_acl.sh read    крок 3: додає rover-ingest і rover-viewer (лише читання); RomisRover без змін
-#   apply_acl.sh narrow  крок 6: acl -> acl.bak, потім RomisRover лише `write rover/+/session`
+#   apply_acl.sh narrow  крок 6: acl -> acl.bak, потім RomisRover лише `write rover/+/session`;
+#                        відмовляє, якщо брокер пускає анонімів (AC-14) або RomisRover уже звужено
+#                        (інакше acl.bak затерся б звуженим ACL, і відкат нічого б не повернув)
+#   apply_acl.sh check-anon  лише перевірка, що анонімне підключення брокер відхиляє (AC-14)
 # Після зміни брокеру надсилається SIGHUP. Паролі тут не потрібні.
 # Змінні: ACL_DIR (за замовчуванням /opt/mosquitto/config), MOSQUITTO_CONTAINER (mosquitto).
 set -euo pipefail
@@ -31,6 +34,13 @@ reload() {
     echo "SIGHUP надіслано контейнеру $CONTAINER."
 }
 
+# AC-14: перевіряє живий брокер, а не файл конфігурації (include, listener-и тощо його обходять).
+anonymous_refused() {
+    local out
+    out="$(docker exec "$CONTAINER" mosquitto_sub -h localhost -d -W 2 -t 'rover/+/session' 2>&1 || true)"
+    grep -qi 'not authorised' <<< "$out"
+}
+
 mode="${1:-}"
 [[ -f "$ACL" ]] || { echo "Немає файла $ACL." >&2; exit 1; }
 
@@ -46,7 +56,19 @@ case "$mode" in
         echo "ACL: додано читання для rover-ingest і rover-viewer; RomisRover без змін."
         reload
         ;;
+    check-anon)
+        anonymous_refused || { echo "Брокер приймає анонімне підключення (AC-14)." >&2; exit 1; }
+        echo "Анонімне підключення відхилено."
+        ;;
     narrow)
+        if ! anonymous_refused; then
+            echo "Брокер приймає анонімне підключення: спершу allow_anonymous false (AC-14)." >&2
+            exit 1
+        fi
+        if [[ "$(block "$ACL" RomisRover)" == "$(block "$TEMPLATE" RomisRover)" ]]; then
+            echo "RomisRover у $ACL уже звужено: повторний запуск затер би acl.bak звуженим ACL." >&2
+            exit 1
+        fi
         if ! grep -qE '^user[[:space:]]+rover-ingest[[:space:]]*$' "$ACL"; then
             echo "У $ACL немає rover-ingest: спершу 'apply_acl.sh read'. Без цього acl.bak" \
                 "не збереже читання для ingest і відкат його забере (AC-20)." >&2
@@ -63,7 +85,7 @@ case "$mode" in
         reload
         ;;
     *)
-        echo "Використання: $0 read|narrow" >&2
+        echo "Використання: $0 read|narrow|check-anon" >&2
         exit 2
         ;;
 esac

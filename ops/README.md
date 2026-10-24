@@ -31,12 +31,19 @@ ops/bootstrap_db.sh
 ```bash
 docker compose build ingest
 set -a; . ~/.config/claude-secrets/rover.env; set +a
-docker run --rm --network infra -e ROVER_OWNER_DATABASE_URL \
-  -v "$PWD/migrations:/migrations:ro" rover-telemetry:local \
-  sh -c 'yoyo apply --batch --database "$ROVER_OWNER_DATABASE_URL" /migrations'
+docker run --rm -i --network infra -e ROVER_OWNER_DATABASE_URL \
+  -v "$PWD/migrations:/migrations:ro" rover-telemetry:local python - <<'PY'
+import os
+from yoyo import get_backend, read_migrations
+
+backend = get_backend(os.environ["ROVER_OWNER_DATABASE_URL"])  # пароль не потрапляє в argv
+migrations = read_migrations("/migrations")
+with backend.lock():
+    backend.apply_migrations(backend.to_apply(migrations))
+PY
 ```
 
-Відкат останньої міграції: `yoyo rollback --batch --database … /migrations` у тому ж виклику.
+Відкат останньої міграції: у тому ж скрипті `backend.rollback_migrations(backend.to_rollback(migrations)[:1])`. `yoyo apply --database <URL>` не використовуйте: пароль у URL видно в аргументах процесу.
 
 ## Брокер: кроки 3–8
 
@@ -46,7 +53,7 @@ docker run --rm --network infra -e ROVER_OWNER_DATABASE_URL \
 `MQTT_ROVER_VIEWER_PASSWORD` (і `MQTT_ADMIN_PASSWORD`, якщо читач проб — `admin`).
 
 Скрипти: `apply_acl.sh` (зміна ACL за `acl.narrow.template`, чужих користувачів не чіпає),
-`probe_publish.sh` (пробна публікація), `verify_launch.sh` (перевірка в БД), `rollback_acl.sh`.
+`probe_publish.sh` (пробна публікація; паролі клієнтам іде через тимчасові файли параметрів, не `-P`), `verify_launch.sh` (перевірка в БД), `rollback_acl.sh`.
 
 **3. Читання для ingest і viewer.** Додайте користувачів у файл паролів (пароль запитується
 інтерактивно; потім збережіть його в `mqtt.env`) і розширте ACL лише читанням:
@@ -86,10 +93,10 @@ ops/probe_publish.sh rover-ingest rover/000000000000/session                # Н
 перевіряє лише доставка читачу. Читач за замовчуванням `rover-viewer` бачить лише `rover/+/session`;
 щоб довести заборону запису на інший топік, читач має бути `admin`.
 
-**AC-13 / AC-14 вручну на живому брокері:** `RomisRover` не отримує звіти
-(`MQTT_PROBE_READER=RomisRover ops/probe_publish.sh admin rover/000000000000/session` → код 3);
-без облікових даних — `docker exec mosquitto mosquitto_sub -d -t rover/+/session -W 2` дає
-`Connection Refused: not authorised`.
+**AC-13 / AC-14 на живому брокері:** `RomisRover` не отримує звіти
+(`MQTT_PROBE_READER=RomisRover ops/probe_publish.sh admin rover/000000000000/session` → код 3).
+Анонімне підключення перевіряє `ops/apply_acl.sh check-anon` (так само автоматично перед `narrow`):
+вона підключається до живого брокера без облікових даних і очікує `not authorised`.
 
 **7. Наступний реальний звіт** (AC-19):
 

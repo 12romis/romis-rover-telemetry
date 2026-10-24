@@ -4,6 +4,7 @@
 """
 
 import os
+import re
 import shutil
 import subprocess
 import uuid
@@ -221,6 +222,62 @@ def test_rover_cannot_read_and_anonymous_is_refused(broker: Broker) -> None:
     assert broker.run("apply_acl.sh", "narrow").returncode == 0
     assert broker.probe("admin", SESSION_TOPIC, reader="RomisRover") == NOT_DELIVERED
     assert "not authorised" in broker.sub_debug(None, SESSION_TOPIC).lower()
+
+
+def test_narrow_twice_is_refused_and_keeps_the_original_backup(broker: Broker) -> None:
+    """Review F4: повторне звуження не має затерти acl.bak звуженим ACL (інакше відкат хибний)."""
+    assert broker.run("apply_acl.sh", "read").returncode == 0
+    before = _acl(broker)
+    assert broker.run("apply_acl.sh", "narrow").returncode == 0
+    narrowed = _acl(broker)
+    again = broker.run("apply_acl.sh", "narrow")
+    assert again.returncode != 0
+    assert "уже звужено" in again.stderr
+    assert (broker.conf_dir / "acl.bak").read_text() == before
+    assert _acl(broker) == narrowed
+    # Відкат справді повертає readwrite rover/#.
+    assert broker.run("rollback_acl.sh", _ended(31)).returncode == 0
+    assert "topic readwrite rover/#" in _acl(broker)
+
+
+def test_check_anon_passes_when_broker_refuses_anonymous(broker: Broker) -> None:
+    """AC-14: перевірка йде по живому брокеру."""
+    result = broker.run("apply_acl.sh", "check-anon")
+    assert result.returncode == 0, result.stderr
+
+
+def test_narrow_refuses_when_broker_accepts_anonymous(broker: Broker) -> None:
+    """AC-14: з allow_anonymous true звужувати права не можна, нічого не змінюється."""
+    assert broker.run("apply_acl.sh", "read").returncode == 0
+    before = _acl(broker)
+    (broker.conf_dir / "mosquitto.conf").write_text(
+        CONF.replace("allow_anonymous false", "allow_anonymous true")
+    )
+    subprocess.run(["docker", "restart", broker.name], check=True, capture_output=True)
+    for _ in range(40):
+        ready = subprocess.run(
+            ["docker", "exec", broker.name, "mosquitto_pub", "-t", "ready", "-m", "1"],
+            capture_output=True,
+            check=False,
+        )  # fmt: skip
+        if ready.returncode == 0:
+            break
+        subprocess.run(["sleep", "0.5"], check=True)
+    result = broker.run("apply_acl.sh", "narrow")
+    assert result.returncode != 0
+    assert "анонімне" in result.stderr.lower()
+    assert _acl(broker) == before
+    assert not (broker.conf_dir / "acl.bak").exists()
+
+
+def test_probe_never_puts_passwords_in_process_arguments(broker: Broker) -> None:
+    """Review F5: паролі не в argv (видно в `ps` на хості). Доставку через файли параметрів
+    клієнтів доводять тести фаз ACL вище (вони ходять через probe_publish.sh)."""
+    text = (OPS / "probe_publish.sh").read_text()
+    assert not re.search(r"mosquitto_(pub|sub)[^\n]* -P ", text)
+    assert "docker exec" in text and "-e PUB_PW -e SUB_PW" in text
+    assert broker.run("apply_acl.sh", "read").returncode == 0
+    assert broker.probe("RomisRover", SESSION_TOPIC) == DELIVERED
 
 
 def _ended(minutes_ago: int) -> str:

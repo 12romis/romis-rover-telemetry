@@ -33,16 +33,24 @@ for var in "$pub_var" "$sub_var"; do
 done
 export PUB_PW="${!pub_var}" SUB_PW="${!sub_var}"
 
-# Усе виконується всередині контейнера брокера, паролі йдуть змінними середовища.
+# Усе виконується всередині контейнера брокера. Паролі йдуть змінними середовища, а клієнти
+# беруть їх із тимчасових файлів параметрів ($XDG_CONFIG_HOME/mosquitto_{sub,pub}, права 600), а
+# не з -P: аргументи процесу видно в `ps` на хості. printf вбудований, тож пароль не потрапляє
+# в аргументи жодного процесу.
 received="$(docker exec -e PUB_PW -e SUB_PW "$CONTAINER" sh -c '
     out="$(mktemp)"
-    mosquitto_sub -h localhost -u "$1" -P "$SUB_PW" -t "$2" -q 1 -C 1 -W 5 > "$out" &
+    cfg="$(mktemp -d)"
+    trap "rm -rf \"$out\" \"$cfg\"" EXIT
+    umask 077
+    printf -- "-u %s\n-P %s\n" "$1" "$SUB_PW" > "$cfg/mosquitto_sub"
+    printf -- "-u %s\n-P %s\n" "$3" "$PUB_PW" > "$cfg/mosquitto_pub"
+    export XDG_CONFIG_HOME="$cfg"
+    mosquitto_sub -h localhost -t "$2" -q 1 -C 1 -W 5 > "$out" &
     sub=$!
     sleep 1
-    mosquitto_pub -h localhost -u "$3" -P "$PUB_PW" -t "$2" -q 1 -m "$4"
+    mosquitto_pub -h localhost -t "$2" -q 1 -m "$4"
     wait "$sub" || true
     cat "$out"
-    rm -f "$out"
 ' sh "$reader" "$topic" "$user" "$message")"
 
 if [[ "$received" == "$message" ]]; then
