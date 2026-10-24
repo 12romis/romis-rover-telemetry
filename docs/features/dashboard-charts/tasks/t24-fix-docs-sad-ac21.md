@@ -7,8 +7,8 @@ acs: ["AC-21"]
 files_hint: ["docs/features/dashboard-charts/sad.md", "docs/features/dashboard-charts/spec.md"]
 owner: "12romis"
 estimate: "S"
-status: "todo"
-step: "—"
+status: "done"
+step: "COMMIT"
 ---
 
 # T24 — Review F9+F5: примітка в SAD §6 про покриття решти AC ux-flows/screens; ручна ship-перевірка AC-21 (HTTPS через Caddy, збереження при зупиненому web)

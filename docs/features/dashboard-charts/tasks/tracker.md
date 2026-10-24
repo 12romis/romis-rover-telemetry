@@ -31,6 +31,6 @@
 | T21 | Review F11: видимий стан loading — прибрати hidden із заповнювача .chart, та сама висота, тест на видимість | ui | 12romis | S | — | done | COMMIT |
 | T22 | Review F2+F3+F4+F13: динамічні межі осі напруги; slotStates для акумулятора та причина вздовж слотів; підказка «Перешкоди» за SCR-05; dispose() при частковому збої блока | ui | 12romis | S | T19, T21 | done | COMMIT |
 | T23 | Review F6: тест AC-22 перевіряє картку «Виїздів» == 2 (підсумки), а не рядки таблиці | tests | 12romis | S | — | done | COMMIT |
-| T24 | Review F9+F5: примітка в SAD §6 про покриття решти AC ux-flows/screens; ручна ship-перевірка AC-21 (HTTPS через Caddy, збереження при зупиненому web) | docs | 12romis | S | — | todo | — |
+| T24 | Review F9+F5: примітка в SAD §6 про покриття решти AC ux-flows/screens; ручна ship-перевірка AC-21 (HTTPS через Caddy, збереження при зупиненому web) | docs | 12romis | S | — | done | COMMIT |
 
 **Total:** 24 tasks (T18–T24 — follow-up за рев'ю 2026-10-24), ~16 person-days. Блок «Рух і борти» (T5, T12, T15) відкидається першим, якщо до 2026-10-26 не вистачить часу (spec §1): решта задач від нього не залежить.
