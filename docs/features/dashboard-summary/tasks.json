@@ -40,7 +40,7 @@
         "tests/unit/test_dashboard_timeline.py"
       ],
       "file": "docs/features/dashboard-summary/tasks/t2-domain-timeline.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",
