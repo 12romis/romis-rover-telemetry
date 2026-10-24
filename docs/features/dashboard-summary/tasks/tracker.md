@@ -13,7 +13,7 @@
 | T3 | [Додати читання одного знімка лише для читання (db/reading.py) і налаштування таймаутів web](./t3-infra-read-snapshot.md) | infra | 12romis | M | T1 | done | — |
 | T4 | [Додати web/formatting.py: «отримано» за Києвом, одиниці, підписи причин, назва ровера, текст звіту](./t4-ui-formatting.md) | ui | 12romis | M | T1 | done | — |
 | T5 | [Створити базовий макет, токени CSS, макроси «немає даних»/картка/повідомлення та блок «Опис»](./t5-ui-base-layout.md) | ui | 12romis | M | — | done | — |
-| T6 | [Побудувати сторінку dashboard.html: опис, вісім карток підсумків, стани empty і error](./t6-ui-summary-block.md) | ui | 12romis | M | T1, T4, T5 | todo | — |
+| T6 | [Побудувати сторінку dashboard.html: опис, вісім карток підсумків, стани empty і error](./t6-ui-summary-block.md) | ui | 12romis | M | T1, T4, T5 | done | — |
 | T7 | [Побудувати список виїздів: розгортуваний рядок (details), позначка пропуску, блок повного звіту](./t7-ui-sessions-list.md) | ui | 12romis | M | T2, T4, T6 | todo | — |
 | T8 | [Додати маршрут GET / з читанням знімка, 503 при недоступному сховищі, заголовками безпеки і /static](./t8-ports-dashboard-route.md) | ports | 12romis | M | T3, T6, T7 | todo | — |
 | T9 | [Підготувати публікацію: alias rover-web у compose, фрагмент Caddyfile, runbook і скрипт перевірки](./t9-wiring-publish-ops.md) | wiring | 12romis | S | T8 | todo | — |

@@ -1,0 +1,20 @@
+{% from '_macros.html' import metric_card %}
+{# Підсумок-сума (AC-07): підпис лише коли є і відомі, і невідомі виїзди. #}
+{% macro missing_note(total) -%}
+{%- if total.sum is not none and total.missing > 0 -%}
+без даних у {{ total.missing }} з {{ total.total }} виїздів
+{%- endif -%}
+{%- endmacro %}
+<section aria-label="Підсумки">
+  <h2>Підсумки за всі виїзди</h2>
+  <div class="cards">
+    {{ metric_card('Виїздів', summary.sessions) }}
+    {{ metric_card('Пробіг', format_distance_cm(summary.distance.sum), missing_note(summary.distance) or none) }}
+    {{ metric_card('Час руху', format_duration_ms(summary.moving.sum), missing_note(summary.moving) or none) }}
+    {{ metric_card('Утримань перед перешкодою', summary.holds.sum, missing_note(summary.holds) or none, wide=True) }}
+    {{ metric_card('Кінцева напруга останнього виїзду', format_voltage_mv(summary.last_voltage_end_mv), ('виїзд № ' ~ summary.last_seq) if summary.last_seq is not none else none, wide=True) }}
+    {{ metric_card('Отримано востаннє (за київським часом)', format_received(summary.last_received_at)) }}
+    {{ metric_card('Прошивка останнього виїзду', summary.last_fw_version) }}
+    {{ metric_card('Втрачені сесії', summary.lost) }}
+  </div>
+</section>

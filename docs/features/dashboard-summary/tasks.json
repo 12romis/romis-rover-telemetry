@@ -131,7 +131,7 @@
         "tests/unit/test_templates_summary.py"
       ],
       "file": "docs/features/dashboard-summary/tasks/t6-ui-summary-block.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T7",
