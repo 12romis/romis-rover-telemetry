@@ -201,7 +201,7 @@
         "tests/integration/test_ops_dashboard.py"
       ],
       "file": "docs/features/dashboard-summary/tasks/t9-wiring-publish-ops.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T10",

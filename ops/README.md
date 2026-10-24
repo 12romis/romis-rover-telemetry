@@ -116,3 +116,42 @@ ops/rollback_acl.sh 2026-10-26T14:05:00+03:00      # час завершення
 
 Відновлює `acl.bak` (з читанням для `rover-ingest`), надсилає SIGHUP і перевіряє, що `RomisRover`
 знову пише. Без `acl.bak` скрипт відмовляє, нічого не змінюючи.
+
+## Публікація дашборду
+
+Сервіс `web` працює в мережі `infra` без опублікованих портів (конституція №12); назовні його
+показує лише Caddy. У мережі він доступний за alias `rover-web` (ім'я `web` може збігтися з чужим
+сервісом). Нічого поза репозиторієм ця фіча не змінює: кроки нижче виконує Оператор з дозволу
+власника.
+
+1. **DNS.** Запис для `rover.romis.cloud` створює власник (залежність, spec §8). Без нього
+   публікація заблокована; розробка й тести від нього не залежать.
+2. **Обмеження ролі `viewer`.** Підключення на запит без пулу, тож розумно обмежити їх кількість
+   (значення `<N>` вибирає Оператор):
+
+   ```bash
+   docker exec -i postgres psql -U postgres -d rover -c 'ALTER ROLE viewer CONNECTION LIMIT <N>;'
+   ```
+
+3. **Caddy.** Додати блок у `/opt/n8n/Caddyfile` і перезавантажити Caddy за процедурою стеку n8n:
+
+   ```caddyfile
+   rover.romis.cloud {
+       reverse_proxy rover-web:8000
+   }
+   ```
+
+4. **Запуск.** `docker compose up -d web` (потрібні `.env` із `WEB_DATABASE_URL` ролі `viewer`
+   і мережа `infra`).
+5. **Перевірка.** `ops/verify_dashboard.sh` — локальна конфігурація compose;
+   `ops/verify_dashboard.sh https://rover.romis.cloud/` — ще й публічна адреса: код 200, чотири
+   заголовки безпеки, сторонніх вузлів немає.
+6. **Ізоляція від приймання (AC-15).** `docker stop <контейнер web>` → надіслати звіт (наприклад,
+   `ops/probe_publish.sh`) → переконатися, що звіт збережено; потім `docker start <контейнер web>`.
+
+### Чекліст security review (spec §6.1) — виконати до `/sdd:ship`
+
+- [ ] Назовні відкрито лише HTTPS через Caddy; `verify_dashboard.sh <URL>` проходить.
+- [ ] `docker compose config` — у `web` немає `ports`; `docker ps` не показує опублікованого порту.
+- [ ] Сховище доступне дашборду лише для читання: `viewer` має лише `SELECT`
+      (`tests/integration/test_roles.py`), знімок читання — `READ ONLY`.

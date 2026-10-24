@@ -9,7 +9,7 @@ files_hint: ["docker-compose.yml", "ops/README.md", "ops/verify_dashboard.sh", "
 owner: "12romis"
 estimate: "S"
 context_budget: "M"
-status: "todo"
+status: "done"
 step: ""
 ---
 
