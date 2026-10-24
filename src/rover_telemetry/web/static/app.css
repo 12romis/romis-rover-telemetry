@@ -7,6 +7,20 @@
   --color-accent: #1f5fbf;
   --color-border: #d3d9e0;
   --color-no-data: #8a4b00; /* окрема роль для «немає даних» */
+  /* Графіки (feature dashboard-charts): кожна серія ще й відрізняється формою й підписом. */
+  --chart-start: #1f5fbf;
+  --chart-min: #b3261e;
+  --chart-end: #2e6b2e;
+  --chart-drop: #6b3fa0;
+  --chart-distance: #0b6e6e;
+  --chart-control-off: #8a4b00;
+  --chart-left: #1f5fbf;
+  --chart-right: #a8431c;
+  --chart-peak: #3d4650;
+  --chart-imbalance: #6b3fa0;
+  --chart-reference: #566170;
+  --chart-gap: #566170; /* рамка слота «сесія не дійшла» */
+  --chart-height: 280px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -103,6 +117,29 @@ body {
   margin-bottom: var(--space-3);
   padding: var(--space-3);
 }
+
+/* Блок графіків: одна колонка, без горизонтальної прокрутки сторінки (AC-18). */
+.chart-block { margin: var(--space-5) 0; min-width: 0; }
+.chart-block h2, .chart-block h3 { margin: 0 0 var(--space-2); }
+.chart-block h3 { font-size: 1rem; margin-top: var(--space-4); }
+.chart {
+  width: 100%;
+  max-width: 100%;
+  height: var(--chart-height);
+  min-height: var(--touch-min);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.chart[hidden] { display: none; }
+.chart-notes { margin: var(--space-3) 0; padding-left: var(--space-5); color: var(--color-muted); }
+.chart-notes li { margin-bottom: var(--space-1); }
+.chart-warning { margin: var(--space-3) 0 0; color: var(--color-muted); font-size: 0.875rem; }
 
 @media (min-width: 640px) {
   .page { max-width: 960px; }

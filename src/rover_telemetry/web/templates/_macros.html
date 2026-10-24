@@ -47,3 +47,38 @@
 {% macro gap_marker(gap) %}
 <div class="gap">{{ rover_name(gap.mac) }} · № {{ gap.seq }} — виїзду з цим номером немає</div>
 {% endmacro %}
+
+{# --- Блоки графіків (feature dashboard-charts) ------------------------------------------- #}
+{% macro chart_unavailable() %}Графік тимчасово недоступний. Решта сторінки працює — спробуйте оновити сторінку трохи пізніше.{% endmacro %}
+
+{# Блок: ok — заголовок, опис, вміст із caller() і дані як JSON; empty — опис і «немає даних»;
+   error — лише заголовок і повідомлення без подробиць (AC-17, AC-19). Дані — лише `tojson`. #}
+{% macro chart_block(key, title, state, data, description) %}
+<section class="chart-block" id="chart-block-{{ key }}" data-chart-block="{{ key }}" data-state="{{ state }}">
+  <h2>{{ title }}</h2>
+  {% if state == 'error' %}
+  {{ state_message(chart_unavailable()) }}
+  {% else %}
+  <p class="description">{{ description }}</p>
+  {% if state == 'empty' %}
+  <p class="state-message" role="status">{{ no_data() }}: виїздів ще не збережено</p>
+  {% else %}
+  {{ caller() }}
+  <script type="application/json" id="chart-data-{{ key }}">{{ data|tojson }}</script>
+  {% endif %}
+  {% endif %}
+</section>
+{% endmacro %}
+
+{# Один графік: JS показує заповнювач і малює; без скрипта лишається <noscript> (AC-19). #}
+{% macro chart(name, subtitle) %}
+<h3>{{ subtitle }}</h3>
+<div class="chart" data-chart="{{ name }}" role="img" aria-label="{{ subtitle }}" hidden>Графік завантажується…</div>
+<noscript><p class="state-message" role="status">{{ chart_unavailable() }}</p></noscript>
+{% endmacro %}
+
+{% macro chart_notes(lines) %}{% if lines %}
+<ul class="chart-notes">{% for line in lines %}<li>{{ line }}</li>{% endfor %}</ul>
+{% endif %}{% endmacro %}
+
+{% macro chart_warning(text) %}<p class="chart-warning">{{ text }}</p>{% endmacro %}

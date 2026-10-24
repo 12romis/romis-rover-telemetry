@@ -165,7 +165,7 @@
         "tests/unit/test_templates_charts.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t8-ui-block-shell-css.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T9",
