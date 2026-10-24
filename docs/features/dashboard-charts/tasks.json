@@ -20,7 +20,7 @@
         "tests/conftest.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t1-domain-charts-core.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T2",

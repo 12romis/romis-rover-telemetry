@@ -8,7 +8,7 @@
 
 | # | Task | Layer | Owner | Estimate | Blocked by | Status | Step |
 |---|---|---|---|---|---|---|---|
-| T1 | Розширити StoredSession полями графіків і додати domain/charts.py: константи з джерелами, Value/Absent/AbsentReason, вісь за номером сесії з порожніми місцями | domain | 12romis | M | — | todo | — |
+| T1 | Розширити StoredSession полями графіків і додати domain/charts.py: константи з джерелами, Value/Absent/AbsentReason, вісь за номером сесії з порожніми місцями | domain | 12romis | M | — | done | COMMIT |
 | T2 | Читати в read_snapshot нові колонки sessions для графіків тим самим знімком | infra | 12romis | S | T1 | todo | — |
 | T3 | Побудувати в domain ряди блоку «Акумулятор»: три напруги, напруга на банку, просадка, причина завершення, відсутні значення | domain | 12romis | M | T1 | todo | — |
 | T4 | Побудувати в domain ряди блоку «Перешкоди»: найменша відстань і датчик, «утримань не було», лічильники датчиків, секунди вимкненого захисту | domain | 12romis | M | T1 | todo | — |
