@@ -39,7 +39,7 @@
         "tests/integration/test_reading.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t2-infra-read-chart-columns.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T3",

@@ -84,3 +84,80 @@ def test_empty_database(migrated_db: str, viewer_url: str) -> None:
     with open_connection(_settings(viewer_url)) as conn:
         snapshot = read_snapshot(conn)
     assert snapshot.sessions == [] and snapshot.gaps == []
+
+
+_CHART_FIELDS = (
+    "holds_min_mm",
+    "holds_min_sensor",
+    "holds_left_front",
+    "holds_front",
+    "holds_right_front",
+    "holds_rear",
+    "tof_control_off_ms",
+    "speed_left_avg_rpm",
+    "speed_left_peak_rpm",
+    "speed_right_avg_rpm",
+    "speed_right_peak_rpm",
+    "speed_imbalance_pct",
+    "encoders_left",
+    "encoders_right",
+)
+
+
+def test_snapshot_reads_chart_columns(stored: None, viewer_url: str) -> None:
+    """Нові колонки для графіків читаються тим самим знімком (AC-12, AC-13)."""
+    with open_connection(_settings(viewer_url)) as conn:
+        snapshot = read_snapshot(conn)
+
+    s27 = next(s for s in snapshot.sessions if s.seq == 27)
+    assert s27.holds_min_mm == 103
+    assert s27.holds_min_sensor == "front"
+    assert (s27.holds_left_front, s27.holds_front) == (0, 1)  # виміряний нуль — не None
+    assert (s27.holds_right_front, s27.holds_rear) == (1, 1)
+    assert s27.tof_control_off_ms == 6660
+    assert (s27.speed_left_avg_rpm, s27.speed_left_peak_rpm) == (30.6, 100.1)
+    assert (s27.speed_right_avg_rpm, s27.speed_right_peak_rpm) == (30.3, 105.0)
+    assert s27.speed_imbalance_pct == 1.1
+    assert (s27.encoders_left, s27.encoders_right) == (True, True)
+    # позиційне створення не зсунуло наявні поля
+    assert s27.end_reason == "disarm" and s27.fw_version == "4727195"
+    assert s27.payload["event"] == "rover.session.v1"
+
+
+def test_snapshot_null_chart_columns_stay_none(stored: None, viewer_url: str) -> None:
+    """`NULL` у кожній новій колонці читається як `None`, не `0` і не `False`."""
+    with open_connection(_settings(viewer_url)) as conn:
+        snapshot = read_snapshot(conn)
+
+    empty = next(s for s in snapshot.sessions if s.seq == 31)
+    for name in _CHART_FIELDS:
+        assert getattr(empty, name) is None, name
+
+
+def test_snapshot_false_encoder_and_zero_speed_are_values(
+    ingest_url: str, viewer_url: str, report_seq27: dict[str, Any]
+) -> None:
+    report = {
+        **report_seq27,
+        "encoders": {"left": False, "right": True},
+        "speed": {**report_seq27["speed"], "left_avg_rpm": 0.0},
+    }
+    _insert(ingest_url, report, 40)
+
+    with open_connection(_settings(viewer_url)) as conn:
+        (s,) = read_snapshot(conn).sessions
+
+    assert s.encoders_left is False and s.encoders_right is True
+    assert s.speed_left_avg_rpm == 0.0
+
+
+def test_snapshot_duplicate_and_rejected_add_no_session(
+    stored: None, ingest_url: str, viewer_url: str, report_seq27: dict[str, Any]
+) -> None:
+    """AC-23: повтор `(mac, seq)` не дає другого виїзду, відхилене виїздом не стає."""
+    _insert(ingest_url, report_seq27, 27)
+
+    with open_connection(_settings(viewer_url)) as conn:
+        snapshot = read_snapshot(conn)
+
+    assert sorted(s.seq for s in snapshot.sessions) == [26, 27, 30, 31]
