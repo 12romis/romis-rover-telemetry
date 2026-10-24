@@ -331,7 +331,7 @@
         "tests/e2e/test_charts_motion.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t15-ui-charts-js-motion.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T16",

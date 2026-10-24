@@ -624,11 +624,212 @@
     mount(section, 'obstacles-control-off', obstaclesControlOffOption(data));
   }
 
+  // ---------- Блок «Рух і борти» ----------
+
+  var BAR_WIDTH = 14;
+  // Короткі підписи напрямку на стовпці; повний текст («лівий борт швидший») — у підказці.
+  var SHORT_DIRECTION = { left: 'лівий\nшвидший', right: 'правий\nшвидший', equal: 'однаково' };
+
+  // Швидкість борту: «0,117 м/с (50,8 об/хв)»; null лишається null.
+  function speedLabel(mps, rpm) {
+    return mps === null ? null : comma(mps, 3) + ' м/с (' + comma(rpm, 1) + ' об/хв)';
+  }
+
+  function motionTooltip(data) {
+    return tooltipOption(data, function (i) {
+      var seq = data.slots[i].seq;
+      var l = data.left[i];
+      var r = data.right[i];
+      var imb = data.imbalance[i];
+      var rows = [
+        row('Лівий борт, середня', speedLabel(l.avg_mps, l.avg_rpm), reasonFor(data, seq, 'left_avg')),
+        row('Лівий борт, пікова', speedLabel(l.peak_mps, l.peak_rpm), reasonFor(data, seq, 'left_peak')),
+        row('Правий борт, середня', speedLabel(r.avg_mps, r.avg_rpm), reasonFor(data, seq, 'right_avg')),
+        row('Правий борт, пікова', speedLabel(r.peak_mps, r.peak_rpm), reasonFor(data, seq, 'right_peak')),
+        row(
+          'Різниця бортів',
+          imb.pct === null ? null : comma(imb.pct, 1) + ' % (' + imb.faster_label + ')',
+          reasonFor(data, seq, 'imbalance')
+        ),
+      ];
+      if (data.no_encoder[i]) {
+        rows.push(row('Енкодера не було', data.no_encoder[i].replace('без енкодера: ', ''), ''));
+      }
+      return rows;
+    });
+  }
+
+  function peakSeries(name, data, side, shift, color) {
+    return {
+      type: 'custom',
+      name: name,
+      silent: true,
+      itemStyle: { color: color },
+      data: data.slots.map(function (slot, i) {
+        return [i, slot.gap ? null : data[side][i].peak_mps];
+      }),
+      encode: { x: 0, y: 1 },
+      renderItem: function (params, api) {
+        var value = api.value(1);
+        if (value === null || value === undefined) {
+          return null;
+        }
+        var point = api.coord([api.value(0), value]);
+        var x = point[0] + shift;
+        var y = point[1] - 3;
+        return {
+          type: 'polygon',
+          shape: { points: [[x, y], [x - 5, y - 9], [x + 5, y - 9]] },
+          style: { fill: color },
+        };
+      },
+    };
+  }
+
+  // Підпис «без енкодера: лівий борт» біля основи слота; відсутні стовпці цього борту не малюються.
+  function encoderCaptions(data) {
+    var rows = [];
+    data.no_encoder.forEach(function (text, i) {
+      if (text) {
+        rows.push([i, text]);
+      }
+    });
+    return {
+      type: 'custom',
+      name: 'Без енкодера',
+      silent: true,
+      data: rows,
+      encode: { x: 0 },
+      renderItem: function (params, api) {
+        var area = params.coordSys;
+        var center = api.coord([api.value(0), 0])[0];
+        return {
+          type: 'text',
+          x: center,
+          y: area.y + area.height - 70,
+          rotation: Math.PI / 2,
+          style: { text: rows[params.dataIndex][1], x: 0, y: 0, align: 'center', verticalAlign: 'middle', fontSize: 11, fill: token('--chart-reference') },
+        };
+      },
+    };
+  }
+
+  function motionSpeedOption(data) {
+    var states = [];
+    function bar(side) {
+      return data.slots.map(function (slot, i) {
+        return slot.gap ? null : data[side][i].avg_mps;
+      });
+    }
+    data.slots.forEach(function (slot, i) {
+      if (slot.gap) {
+        return;
+      }
+      var l = data.left[i];
+      var r = data.right[i];
+      if ([l.avg_mps, l.peak_mps, r.avg_mps, r.peak_mps].every(function (v) { return v === null; })) {
+        states.push({ i: i, kind: 'no_data', text: NO_DATA });
+      }
+    });
+    var leftColor = token('--chart-left');
+    var rightColor = token('--chart-right');
+    return {
+      animation: false,
+      grid: { left: 8, right: 14, top: 44, bottom: 56, containLabel: true },
+      legend: {
+        top: 0,
+        data: [
+          { name: 'Лівий борт', icon: 'rect' },
+          { name: 'Правий борт', icon: 'rect' },
+          { name: 'Пік лівого борту', icon: 'triangle' },
+          { name: 'Пік правого борту', icon: 'triangle' },
+        ],
+        textStyle: { color: token('--color-text') },
+      },
+      xAxis: xAxis(data),
+      yAxis: {
+        type: 'value',
+        name: 'м/с',
+        min: 0,
+        axisLabel: { color: token('--color-muted'), formatter: axisNumber },
+      },
+      tooltip: motionTooltip(data),
+      series: [
+        { type: 'bar', name: 'Лівий борт', data: bar('left'), barWidth: BAR_WIDTH, barGap: '0%', itemStyle: { color: leftColor } },
+        {
+          type: 'bar',
+          name: 'Правий борт',
+          data: bar('right'),
+          barWidth: BAR_WIDTH,
+          barGap: '0%',
+          itemStyle: {
+            color: rightColor,
+            decal: { symbol: 'rect', dashArrayX: [1, 0], dashArrayY: [2, 3], rotation: Math.PI / 4, color: 'rgba(255,255,255,0.7)' },
+          },
+        },
+        peakSeries('Пік лівого борту', data, 'left', -BAR_WIDTH / 2, leftColor),
+        peakSeries('Пік правого борту', data, 'right', BAR_WIDTH / 2, rightColor),
+        slotStates(states),
+        encoderCaptions(data),
+        gapSeries(data),
+        hitSeries(data),
+      ],
+    };
+  }
+
+  function motionImbalanceOption(data) {
+    var states = [];
+    var bars = data.imbalance.map(function (imb, i) {
+      if (data.slots[i].gap) {
+        return null;
+      }
+      if (imb.pct === null) {
+        states.push({ i: i, kind: 'no_data', text: NO_DATA });
+        return null;
+      }
+      return {
+        value: imb.pct,
+        label: {
+          show: true,
+          position: imb.pct < 0 ? 'bottom' : 'top',
+          formatter: comma(imb.pct, 1) + ' %\n' + SHORT_DIRECTION[imb.faster],
+          color: token('--color-text'),
+          fontSize: 10,
+        },
+      };
+    });
+    return {
+      animation: false,
+      grid: { left: 8, right: 14, top: 44, bottom: 56, containLabel: true },
+      xAxis: xAxis(data),
+      yAxis: {
+        type: 'value',
+        name: '% (вгору — лівий швидший)',
+        nameTextStyle: { align: 'left' },
+        boundaryGap: ['30%', '30%'],
+        axisLabel: { color: token('--color-muted'), formatter: axisNumber },
+      },
+      tooltip: motionTooltip(data),
+      series: [
+        { type: 'bar', name: 'Різниця бортів', data: bars, barMaxWidth: 28, itemStyle: { color: token('--chart-imbalance') } },
+        slotStates(states),
+        gapSeries(data),
+        hitSeries(data),
+      ],
+    };
+  }
+
+  function renderMotion(section, data) {
+    mount(section, 'motion-speed', motionSpeedOption(data));
+    mount(section, 'motion-imbalance', motionImbalanceOption(data));
+  }
+
   // ---------- Запуск: кожен блок ізольовано ----------
 
   var RENDERERS = {
     battery: renderBattery,
     obstacles: renderObstacles,
+    motion: renderMotion,
   };
 
   function unavailable(section) {
