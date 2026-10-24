@@ -9,7 +9,7 @@ files_hint: ["src/rover_telemetry/web/templates/base.html", "src/rover_telemetry
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
-status: "todo"
+status: "done"
 step: ""
 ---
 

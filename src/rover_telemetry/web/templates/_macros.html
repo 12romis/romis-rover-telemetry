@@ -1,0 +1,15 @@
+{# Порожній стан «немає даних»: курсив, окремий колір і текст — не лише колір (AC-06). #}
+{% macro no_data() %}<em class="no-data">немає даних</em>{% endmacro %}
+
+{# Значення або «немає даних». Перевірка `is none`, не truthiness: виміряний 0 — це число. #}
+{% macro value_or_no_data(value) %}{% if value is none %}{{ no_data() }}{% else %}{{ value }}{% endif %}{% endmacro %}
+
+{% macro metric_card(label, value, note=None, wide=False) %}
+<div class="card{% if wide %} card--wide{% endif %}">
+  <div class="card__label">{{ label }}</div>
+  <div class="card__value">{{ value_or_no_data(value) }}</div>
+  {% if note is not none %}<div class="card__note">{{ note }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro state_message(text) %}<p class="state-message" role="status">{{ text }}</p>{% endmacro %}

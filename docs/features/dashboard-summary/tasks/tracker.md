@@ -12,7 +12,7 @@
 | T2 | [Додати в domain хронологію виїздів із позначками номерів без виїзду](./t2-domain-timeline.md) | domain | 12romis | S | T1 | done | — |
 | T3 | [Додати читання одного знімка лише для читання (db/reading.py) і налаштування таймаутів web](./t3-infra-read-snapshot.md) | infra | 12romis | M | T1 | done | — |
 | T4 | [Додати web/formatting.py: «отримано» за Києвом, одиниці, підписи причин, назва ровера, текст звіту](./t4-ui-formatting.md) | ui | 12romis | M | T1 | done | — |
-| T5 | [Створити базовий макет, токени CSS, макроси «немає даних»/картка/повідомлення та блок «Опис»](./t5-ui-base-layout.md) | ui | 12romis | M | — | todo | — |
+| T5 | [Створити базовий макет, токени CSS, макроси «немає даних»/картка/повідомлення та блок «Опис»](./t5-ui-base-layout.md) | ui | 12romis | M | — | done | — |
 | T6 | [Побудувати сторінку dashboard.html: опис, вісім карток підсумків, стани empty і error](./t6-ui-summary-block.md) | ui | 12romis | M | T1, T4, T5 | todo | — |
 | T7 | [Побудувати список виїздів: розгортуваний рядок (details), позначка пропуску, блок повного звіту](./t7-ui-sessions-list.md) | ui | 12romis | M | T2, T4, T6 | todo | — |
 | T8 | [Додати маршрут GET / з читанням знімка, 503 при недоступному сховищі, заголовками безпеки і /static](./t8-ports-dashboard-route.md) | ports | 12romis | M | T3, T6, T7 | todo | — |

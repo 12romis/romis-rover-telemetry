@@ -16,7 +16,7 @@ updated_at: "2026-10-24"
 ## Platform posture
 
 - **Posture:** mobile-first — бриф вимагає «зручно на телефоні», глядачі презентації відкривають дашборд з телефона (`docs/idea-brief.md` §5, §7); десктоп — розширення, не окремий макет.
-- **Breakpoints / device classes:** не зафіксовані; значення визначає перший екран («Підсумки + таблиця виїздів») і записує сюди. Одна колонка на вузькому екрані, горизонтального скролу сторінки немає.
+- **Breakpoints / device classes:** базовий макет — від 360 px, одна колонка; широкий екран — від 640 px (`src/rover_telemetry/web/static/app.css:58`, припущення OP-1 фічі dashboard-summary). Горизонтального скролу сторінки немає.
 
 ## Design tool
 
@@ -25,21 +25,22 @@ updated_at: "2026-10-24"
 
 ## Token source
 
-Токени ще не існують: `src/rover_telemetry/web/static/` порожній (`.gitkeep`). Джерело токенів — **один файл CSS-змінних** `web/static/app.css` (`docs/architecture-map.md:106`, ADR-0001: власний CSS, без Tailwind і без збірки). Конкретні значення вирішує перший екран і реєструє `implement`; екран не оголошує токен інлайн.
+Джерело токенів — **один файл CSS-змінних** `src/rover_telemetry/web/static/app.css:2` (блок `:root`) (`docs/architecture-map.md:106`, ADR-0001: власний CSS, без Tailwind і без збірки). Екран не оголошує токен інлайн.
 
 - **Colors:** CSS-змінні в `app.css`; ролі — фон, поверхня, текст, приглушений текст, акцент, межа, а також окремий колір статусу «немає даних» (відмінний від усіх кольорів вимірюваних значень). Кольори графіків перевіряються на контраст і не покладаються лише на колір (є мітка/підпис).
-- **Spacing / sizing:** CSS-змінні в `app.css`; шкала відступів і мінімальна ціль дотику для телефона — фіксуються першим екраном.
+- **Spacing / sizing:** CSS-змінні в `app.css`; `--space-1…5` (4–24 px), `--touch-min: 44px` — мінімальна висота натискного елемента (`app.css:15`, припущення OP-2).
 - **Typography:** CSS-змінні в `app.css`; системні шрифти, без завантаження з CDN (презентація не залежить від зовнішньої мережі — `docs/architecture-map.md:109`).
 
 ## Component inventory
 
-Готових компонентів немає (greenfield). Рядки — **заплановані** примітиви з `architecture-map.md`; після `implement` прив'язка замінюється на `file:line` коду. `screens.md` використовує лише ці імена або оголошує `NEW: <name>` з поясненням, чому не підходить жоден примітив.
+Компоненти прив'язані до `file:line` коду; графік ECharts ще планується. `screens.md` використовує лише ці імена або оголошує `NEW: <name>` з поясненням, чому не підходить жоден примітив.
 
 | Component | Source (`file:line` / node / URL) | States it supports | Notes |
 |---|---|---|---|
-| `base.html` (базовий макет) | `docs/architecture-map.md:105` (планується `web/templates/base.html`) | default | Спільна шапка, одна колонка на телефоні, підключення `app.css` |
-| Картка показника (макрос) | `docs/architecture-map.md:108` | default / немає даних | Значення + підпис + одиниця; `NULL` → «немає даних» |
-| Порожній стан «немає даних» (макрос) | `docs/architecture-map.md:108` | default | Єдиний вигляд відсутнього значення; не нуль |
+| `base.html` (базовий макет) | `src/rover_telemetry/web/templates/base.html:1` | default | Спільна шапка, одна колонка на телефоні, підключення `app.css` |
+| Картка показника (макрос) | `src/rover_telemetry/web/templates/_macros.html:7` | default / немає даних | Значення + підпис + одиниця; `NULL` → «немає даних» |
+| Порожній стан «немає даних» (макрос) | `src/rover_telemetry/web/templates/_macros.html:2` | default | Єдиний вигляд відсутнього значення; не нуль |
+| Повідомлення стану (макрос) | `src/rover_telemetry/web/templates/_macros.html:15` | default | Текст на місці підсумків і списку для станів empty / error |
 | Графік ECharts | `docs/architecture-map.md:109` (`web/static/echarts.min.js`) | default / loading / empty / error | Дані з JSON-ендпоінтів FastAPI (`docs/architecture-map.md:110`); без CDN |
 
 ## Interaction & writing conventions
