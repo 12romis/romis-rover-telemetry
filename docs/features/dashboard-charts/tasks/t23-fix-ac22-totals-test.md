@@ -7,8 +7,8 @@ acs: ["AC-22"]
 files_hint: ["tests/integration/test_charts_page.py"]
 owner: "12romis"
 estimate: "S"
-status: "todo"
-step: "—"
+status: "done"
+step: "COMMIT"
 ---
 
 # T23 — Review F6: тест AC-22 перевіряє картку «Виїздів» == 2 (підсумки), а не рядки таблиці

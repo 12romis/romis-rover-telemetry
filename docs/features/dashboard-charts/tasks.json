@@ -495,7 +495,7 @@
         "tests/integration/test_charts_page.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t23-fix-ac22-totals-test.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T24",

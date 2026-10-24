@@ -42,6 +42,15 @@ def seqs(html: str, key: str) -> list[int]:
     return [slot["seq"] for slot in block_data(html, key)["slots"]]
 
 
+def summary_sessions(html: str) -> str:
+    """Значення картки «Виїздів» у підсумках (AC-22: той самий набір, що й у графіках)."""
+    match = re.search(
+        r'card__label">Виїздів</div>\s*<div class="card__value">(.*?)</div>', html, re.S
+    )
+    assert match is not None
+    return re.sub(r"<[^>]+>", "", match.group(1)).strip()
+
+
 def test_ac17_empty_storage_three_empty_blocks_and_zero_sessions(client: TestClient) -> None:
     response = client.get("/")
 
@@ -62,11 +71,13 @@ def test_ac22_new_session_is_in_every_block_and_summary_on_refresh(
     store(report_seq26)
     before = client.get("/").text
     assert all(seqs(before, k) == [26] for k in BLOCKS)
+    assert summary_sessions(before) == "1"
 
     store(report_seq27)
     after = client.get("/").text
 
     assert all(seqs(after, k) == [26, 27] for k in BLOCKS)
+    assert summary_sessions(after) == "2"  # підсумки враховують новий виїзд так само, як графіки
     assert after.count("<details") == 2
     assert client.get("/").headers["cache-control"] == "no-store"
 
