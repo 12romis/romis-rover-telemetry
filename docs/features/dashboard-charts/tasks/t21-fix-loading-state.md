@@ -7,8 +7,8 @@ acs: ["AC-19"]
 files_hint: ["src/rover_telemetry/web/templates/_macros.html", "src/rover_telemetry/web/static/app.css", "tests/unit/test_templates_charts.py"]
 owner: "12romis"
 estimate: "S"
-status: "todo"
-step: "—"
+status: "done"
+step: "COMMIT"
 ---
 
 # T21 — Review F11: видимий стан loading — прибрати hidden із заповнювача .chart, та сама висота, тест на видимість

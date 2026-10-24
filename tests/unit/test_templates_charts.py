@@ -93,3 +93,21 @@ def test_chart_notes_render_nothing_without_lines_and_escape_text() -> None:
 def test_macros_do_not_use_safe_filter() -> None:
     for path in TEMPLATES.glob("*.html"):
         assert "|safe" not in path.read_text().replace(" ", ""), path.name
+
+
+def test_loading_placeholder_is_visible_until_charts_js_replaces_it() -> None:
+    """Review F11, screens.md `loading`: заповнювач не під `hidden` і має висоту графіка."""
+    html = render(BLOCK_OK, data={"points": [1]}, notes=[])
+
+    tag = re.search(r'<div class="chart"[^>]*>', html)
+    assert tag is not None and "hidden" not in tag.group(0)
+    assert ".chart[hidden]" not in (TEMPLATES.parent / "static" / "app.css").read_text()
+
+
+def test_without_script_the_placeholder_is_hidden_by_noscript_stylesheet() -> None:
+    """Без скрипта «завантажується…» ховає стиль із `<noscript>` (CSP без inline)."""
+    base = (TEMPLATES / "base.html").read_text()
+    css = (TEMPLATES.parent / "static" / "no-js.css").read_text()
+
+    assert '<noscript><link rel="stylesheet" href="/static/no-js.css"></noscript>' in base
+    assert re.search(r"\.chart\s*\{[^}]*display:\s*none", css)

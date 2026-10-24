@@ -136,7 +136,6 @@ body {
   justify-content: center;
   overflow: hidden;
 }
-.chart[hidden] { display: none; }
 .chart-tip-box { white-space: normal !important; max-width: calc(100vw - 4rem); }
 .chart-tip { text-align: left; font-size: 0.8125rem; line-height: 1.4; }
 .chart-tip strong { display: block; margin-bottom: var(--space-1); }

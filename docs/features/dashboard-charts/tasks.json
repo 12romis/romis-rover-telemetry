@@ -453,7 +453,7 @@
         "tests/unit/test_templates_charts.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t21-fix-loading-state.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T22",

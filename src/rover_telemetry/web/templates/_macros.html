@@ -73,7 +73,7 @@
 {# Один графік: JS показує заповнювач і малює; без скрипта лишається <noscript> (AC-19). #}
 {% macro chart(name, subtitle) %}
 <h3>{{ subtitle }}</h3>
-<div class="chart" data-chart="{{ name }}" role="img" aria-label="{{ subtitle }}" hidden>Графік завантажується…</div>
+<div class="chart" data-chart="{{ name }}" role="img" aria-label="{{ subtitle }}">Графік завантажується…</div>
 <noscript><p class="state-message" role="status">{{ chart_unavailable() }}</p></noscript>
 {% endmacro %}
 
