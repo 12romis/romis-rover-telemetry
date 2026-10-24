@@ -108,7 +108,7 @@ C4Context
 4. **Права звужені і звужуються оборотно** — три облікові записи брокера й три ролі Postgres; ACL звужується після того, як `ingest` перевірено, з пробною публікацією до виїзду і відкатом — feature ADR-0003. Рядки підключення до БД роздаються на контейнер.
 5. **Втрати рахуються, а не зберігаються** — втрачені сесії дає SQL-представлення від найменшого збереженого `seq`, тож облік сам сходиться за довільного порядку доставки — feature ADR-0004.
 
-Тактичні рішення цього етапу (без ADR, бо відкат — години, а не дні): `received_at` — час сервісу в UTC на вході в callback, до розбору; розбір — власна чиста функція в `domain` без pydantic/jsonschema; логування — рядки `key=value` у stdout; БД і ролі створює одноразовий скрипт Оператора від суперкористувача Postgres (паролі не в git), а таблиці, представлення і GRANT — міграція `0002` від `owner`, `ingest` міграцій не запускає.
+Тактичні рішення цього етапу (без ADR, бо відкат — години, а не дні): `received_at` — час сервісу в UTC на вході в callback, до розбору; розбір — власна чиста функція в `domain` без pydantic/jsonschema; логування — рядки `key=value` у stdout; БД і ролі створює одноразовий скрипт Оператора від суперкористувача Postgres (паролі не в git), а таблиці, представлення і GRANT — міграції `0002`–`0004` від `owner`, `ingest` міграцій не запускає.
 
 Окреме уточнення: початок обліку втрат визначається найменшим збереженим `seq` (spec AC-08), а не «першим за часом отримання»; для AC-19 це те саме значення, якщо перший прийнятий звіт найстаріший, і `plan-tests` має перевірити обидва порядки.
 
@@ -128,8 +128,10 @@ src/rover_telemetry/
 │   └── __main__.py      # очікування БД, підключення до брокера, on_message -> parse -> db -> ack, вихід при збої
 └── config.py            # INGEST_DATABASE_URL, MQTT_*, client id; без значень за замовчуванням для паролів
 migrations/
-├── 0002_sessions_rejected.sql           # sessions, rejected, представлення session_gaps, GRANT
-└── 0002_sessions_rejected.rollback.sql
+├── 0002_create_sessions.sql             # sessions, GRANT
+├── 0003_create_rejected.sql             # rejected, GRANT
+├── 0004_create_session_gaps.sql         # представлення session_gaps, GRANT
+└── NNNN_*.rollback.sql                  # пара до кожної
 ops/                     # одноразові скрипти Оператора (не міграції): ролі й БД, ACL-шаблон, перевірки запуску
 ```
 
@@ -207,7 +209,7 @@ sequenceDiagram
     participant Ingest as ingest
     participant Db as Postgres rover
     participant Rover as Ровер
-    Operator->>Db: Створює БД і ролі, застосовує міграцію 0002
+    Operator->>Db: Створює БД і ролі, застосовує міграції 0002–0004
     Operator->>Ingest: Запускає зі старим ACL
     Operator->>Broker: Пробне повідомлення від RomisRover на топік rover/000000000000/session
     Broker->>Ingest: Доставляє пробне
@@ -408,7 +410,7 @@ sequenceDiagram
 **Launch checklist (feature ADR-0003):**
 
 1. Скрипт Оператора від суперкористувача Postgres створює БД `rover` і ролі `owner`, `ingest`, `viewer`; паролі беруться з `~/.config/claude-secrets/rover.env`.
-2. `yoyo` від `owner` застосовує `0002` (таблиці, представлення, GRANT).
+2. `yoyo` від `owner` застосовує `0002`–`0004` (таблиці, представлення, GRANT).
 3. У файл паролів брокера додаються `rover-ingest` і `rover-viewer`; ACL розширюється лише читанням для них; `RomisRover` поки `readwrite rover/#`; SIGHUP.
 4. Запуск `ingest`; при першому підключенні порівняти перший отриманий `seq` із 27 (spec §8: чи є вже черга).
 5. Пробне повідомлення від `RomisRover` наскрізь до `rejected` (топік `rover/000000000000/session`).
@@ -432,7 +434,7 @@ sequenceDiagram
 | Logging | Один рядок `key=value` на подію в stdout: `event` (`stored`/`duplicate`/`rejected`/`error`), `mac`, `seq`, `reason_code`, `received_at`, `latency_ms`; без вмісту звіту й без паролів | тут |
 | Authentication / AuthZ | Три облікові записи брокера (`RomisRover` лише `write rover/+/session`, `rover-ingest` лише `read`, `rover-viewer` лише `read`) і три ролі Postgres (`owner` — міграції, `ingest` — лише `INSERT` на `sessions`, `rejected`, `viewer` — лише `SELECT`); `ingest` не читає, не змінює, не видаляє | конституція №10, рішення власника №5, feature ADR-0003, ADR-0005 |
 | Error handling | Невалідне повідомлення не падає процес: збережене в `rejected` з кодом причини і текстом, потім `ack`; збій сховища — вихід без `ack`; виняток `ReportError` у `domain` | конституція №7, feature ADR-0001, `docs/architecture-map.md` |
-| Reason codes | Фіксований перелік, перший спрацьований у порядку: `too_large`, `not_json`, `unknown_event`, `unsupported_schema`, `missing_id`, `id_mismatch`, `bad_type`; відсутність інших полів і явні `null` — не причина; перевірок діапазонів немає; точні значення колонки уточнює `data-model` | spec AC-05…AC-07 |
+| Reason codes | Фіксований перелік, перший спрацьований у порядку: `too_large`, `not_json`, `unknown_event`, `unsupported_schema`, `missing_id`, `id_mismatch`, `bad_type`; відсутність інших полів і явні `null` — не причина; перевірок бізнес-діапазонів немає, але значення, яке не вміщується в колонку (int32, скінченне число, без NUL/сурогатів/NaN/Infinity), відсівається на вході (`not_json`/`bad_type`), а запобіжник обробника кладе в `rejected` (`bad_type`) те, що сховище все одно не прийняло, — інакше сервіс зациклювався б на одному повідомленні (review F1); формат `mac` — 12 hex нижнім регістром (`bad_type`); retained-повідомлення не є звітом (контракт: `retain` вимкнено), його підтверджено без запису; точні значення колонки уточнює `data-model` | spec AC-05…AC-07 |
 | ID strategy | Природний ключ `(mac, seq)`; для `rejected` — сурогатний ідентифікатор запису | конституція №6, feature ADR-0005 |
 | Time | `received_at timestamptz` = час сервісу UTC на вході в callback; ніякого «часу сесії»; у UI «отримано», пояс Europe/Kyiv | конституція №5, рішення власника №11 |
 | NULL vs 0 | Відсутнє значення — `NULL` у БД, `None` у `domain`; виміряний нуль — нуль; агрегації `NULL` не підставляють нулем | конституція №4 |
