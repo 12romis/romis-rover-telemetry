@@ -1,0 +1,30 @@
+# Сервіси працюють у зовнішній мережі infra; порти на хост не публікуються (конституція №12).
+# Змінні роздаються через `environment:`, а не `env_file:`: кожна служба бачить лише свої
+# (рядок підключення ingest не потрапляє в web і навпаки; конституція №10).
+services:
+  ingest:
+    build: .
+    image: rover-telemetry:local
+    command: ["python", "-m", "rover_telemetry.ingest"]
+    environment:
+      INGEST_DATABASE_URL: ${INGEST_DATABASE_URL:-}
+      MQTT_HOST: ${MQTT_HOST:-}
+      MQTT_PORT: ${MQTT_PORT:-}
+      MQTT_USERNAME: ${MQTT_USERNAME:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-}
+    restart: unless-stopped
+    networks: [infra]
+
+  web:
+    build: .
+    image: rover-telemetry:local
+    command: ["python", "-m", "rover_telemetry.web"]
+    environment:
+      WEB_DATABASE_URL: ${WEB_DATABASE_URL:-}
+    restart: unless-stopped
+    networks: [infra]
+
+networks:
+  infra:
+    external: true

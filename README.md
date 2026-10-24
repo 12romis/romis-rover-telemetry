@@ -6,9 +6,9 @@
 
 ## Status / Стан
 
-**EN** · Early stage: specification in progress (Spec-Driven Development, see `docs/`). No runnable code yet.
+**EN** · Early stage: project skeleton is in place (package, tests, migrations, Docker, CI); ingest and dashboard features are not implemented yet (Spec-Driven Development, see `docs/roadmap.md`).
 
-**UA** · Рання стадія: триває специфікація (Spec-Driven Development, див. `docs/`). Робочого коду ще немає.
+**UA** · Рання стадія: готовий скелет проєкту (пакет, тести, міграції, Docker, CI); ingest і дашборд ще не реалізовано (Spec-Driven Development, див. `docs/roadmap.md`).
 
 ## Documents / Документи
 

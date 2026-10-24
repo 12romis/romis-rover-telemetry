@@ -24,7 +24,12 @@
 
 ## Команди
 
-Збірку й тести ще не налаштовано: їх визначить `/sdd:survey` + `/sdd:scaffold` і запише сюди та в `docs/architecture-map.md`.
+- Середовище: `python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'`.
+- Тести без Docker: `pytest -m 'not integration'`; усі (потрібен Docker, піднімає ефемерний Postgres 16): `pytest`.
+- Лінт і типи: `ruff check . && ruff format --check . && mypy src`.
+- Міграції: `migrations/NNNN_<назва>.sql` + `NNNN_<назва>.rollback.sql` (`yoyo-migrations`, драйвер `postgresql+psycopg://`).
+- Запуск: `python -m rover_telemetry.ingest`, `python -m rover_telemetry.web`.
+- Збірка образу: `docker compose build` (потрібна зовнішня мережа `infra` і `.env` за зразком `.env.example`).
 
 ## Інфраструктура сервера (VPS)
 

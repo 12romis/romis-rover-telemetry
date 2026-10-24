@@ -1,0 +1,273 @@
+{
+  "slug": "ingest",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Промотувати міграцію таблиці sessions у live migrations/ як 0002",
+      "layer": "migration",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-10",
+        "AC-11"
+      ],
+      "dod": "інтеграційні тести з чеклиста проходять (`pytest -m integration`); міграція `0002_create_sessions` застосовується й відкочується чисто",
+      "files_hint": [
+        "docs/features/ingest/migrations/01_create_sessions.sql",
+        "docs/features/ingest/migrations/01_create_sessions.rollback.sql",
+        "migrations/",
+        "tests/conftest.py",
+        "tests/integration/test_migrations.py"
+      ],
+      "file": "docs/features/ingest/tasks/t1-migration-sessions.md",
+      "status": "done"
+    },
+    {
+      "id": "T2",
+      "title": "Промотувати міграцію таблиці rejected як 0003",
+      "layer": "migration",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-07"
+      ],
+      "dod": "тести з чеклиста проходять; `0003_create_rejected` застосовується й відкочується чисто, `sessions` не зачеплено",
+      "files_hint": [
+        "docs/features/ingest/migrations/02_create_rejected.sql",
+        "docs/features/ingest/migrations/02_create_rejected.rollback.sql",
+        "migrations/",
+        "tests/integration/test_migrations.py"
+      ],
+      "file": "docs/features/ingest/tasks/t2-migration-rejected.md",
+      "status": "done"
+    },
+    {
+      "id": "T3",
+      "title": "Промотувати міграцію представлення session_gaps як 0004",
+      "layer": "migration",
+      "deps": [
+        "T2"
+      ],
+      "acs": [
+        "AC-08",
+        "AC-09"
+      ],
+      "dod": "`0004_create_session_gaps` застосовується й відкочується чисто; поведінка представлення — AC-08/AC-09 — перевіряється в T8",
+      "files_hint": [
+        "docs/features/ingest/migrations/03_create_session_gaps.sql",
+        "docs/features/ingest/migrations/03_create_session_gaps.rollback.sql",
+        "migrations/",
+        "tests/integration/test_migrations.py"
+      ],
+      "file": "docs/features/ingest/tasks/t3-migration-session-gaps.md",
+      "status": "done"
+    },
+    {
+      "id": "T4",
+      "title": "Розібрати валідний звіт у ParsedSession (domain.parse_report, щасливий шлях)",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-02",
+        "AC-10",
+        "AC-11",
+        "AC-12"
+      ],
+      "dod": "`pytest tests/unit/test_report_valid.py` проходить для фікстур seq 26 і 27; 100 % значень фікстур збігаються з JSON (NFR «Точність розбору»)",
+      "files_hint": [
+        "src/rover_telemetry/domain/report.py",
+        "tests/unit/test_report_valid.py"
+      ],
+      "file": "docs/features/ingest/tasks/t4-domain-parse-valid.md",
+      "status": "done"
+    },
+    {
+      "id": "T5",
+      "title": "Відхиляти невалідні повідомлення з кодом причини (domain.parse_report, гілки Rejection)",
+      "layer": "domain",
+      "deps": [
+        "T4"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-06",
+        "AC-07"
+      ],
+      "dod": "`pytest tests/unit/test_report_rejected.py` проходить: усі 7 причин, порядок, обрізання; тести T4 лишаються зеленими",
+      "files_hint": [
+        "src/rover_telemetry/domain/report.py",
+        "tests/unit/test_report_rejected.py"
+      ],
+      "file": "docs/features/ingest/tasks/t5-domain-reject-reasons.md",
+      "status": "done"
+    },
+    {
+      "id": "T6",
+      "title": "Розділити налаштування й паролі: INGEST_DATABASE_URL, MQTT_*, compose environment",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "`pytest tests/unit/test_config.py` проходить; `docker compose config` не показує `INGEST_DATABASE_URL` у `web` і навпаки",
+      "files_hint": [
+        "src/rover_telemetry/config.py",
+        "docker-compose.yml",
+        ".env.example",
+        "tests/unit/test_config.py"
+      ],
+      "file": "docs/features/ingest/tasks/t6-wiring-config-compose.md",
+      "status": "done"
+    },
+    {
+      "id": "T7",
+      "title": "Записувати сесії й відхилені: db.sessions.insert_session / insert_rejected",
+      "layer": "infra",
+      "deps": [
+        "T2",
+        "T5"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-03",
+        "AC-03b",
+        "AC-05b"
+      ],
+      "dod": "`pytest tests/integration/test_db_inserts.py` проходить на ефемерному Postgres 16; `insert_session` не використовує `SELECT` і не має цілі в `ON CONFLICT`",
+      "files_hint": [
+        "src/rover_telemetry/db/sessions.py",
+        "tests/integration/test_db_inserts.py"
+      ],
+      "file": "docs/features/ingest/tasks/t7-infra-db-inserts.md",
+      "status": "done"
+    },
+    {
+      "id": "T8",
+      "title": "Перевірити ролі Postgres і облік втрат session_gaps",
+      "layer": "tests",
+      "deps": [
+        "T3",
+        "T7"
+      ],
+      "acs": [
+        "AC-08",
+        "AC-09",
+        "AC-15",
+        "AC-16"
+      ],
+      "dod": "обидва файли тестів проходять (`pytest -m integration`); перевірка прав — мінімум по одному негативному тесту на кожну пару «роль, дія»: `viewer` INSERT/UPDATE/DELETE, `ingest` SELECT/UPDATE/DELETE",
+      "files_hint": [
+        "tests/integration/test_roles.py",
+        "tests/integration/test_session_gaps.py",
+        "tests/conftest.py"
+      ],
+      "file": "docs/features/ingest/tasks/t8-tests-roles-session-gaps.md",
+      "status": "done"
+    },
+    {
+      "id": "T9",
+      "title": "Обробити одне повідомлення: розбір → запис → COMMIT → результат (ingest.handler)",
+      "layer": "app",
+      "deps": [
+        "T7"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-03",
+        "AC-05",
+        "AC-06"
+      ],
+      "dod": "`pytest tests/integration/test_handler.py` проходить; функція повертає результат лише після `commit()`",
+      "files_hint": [
+        "src/rover_telemetry/ingest/handler.py",
+        "tests/integration/test_handler.py"
+      ],
+      "file": "docs/features/ingest/tasks/t9-app-message-handler.md",
+      "status": "done"
+    },
+    {
+      "id": "T10",
+      "title": "Запустити підписника: очікування БД, MQTT QoS 1 з manual ack, вихід при збої",
+      "layer": "app",
+      "deps": [
+        "T6",
+        "T9"
+      ],
+      "acs": [
+        "AC-17",
+        "AC-18"
+      ],
+      "dod": "`pytest tests/unit/test_runner.py` проходить; `ack` лише після `commit`, при винятку — `SystemExit(1)` без `ack`",
+      "files_hint": [
+        "src/rover_telemetry/ingest/__main__.py",
+        "tests/unit/test_runner.py"
+      ],
+      "file": "docs/features/ingest/tasks/t10-app-mqtt-runner.md",
+      "status": "done"
+    },
+    {
+      "id": "T11",
+      "title": "Наскрізні тести ingest: збій сховища, наздоганяння 1000 звітів, перезапуск",
+      "layer": "tests",
+      "deps": [
+        "T8",
+        "T10"
+      ],
+      "acs": [
+        "AC-17",
+        "AC-18"
+      ],
+      "dod": "`pytest -m integration tests/integration/test_ingest_e2e.py` проходить; 1000 звітів наздоганяються ≤ 60 с на ефемерному брокері",
+      "files_hint": [
+        "tests/conftest.py",
+        "tests/integration/test_ingest_e2e.py"
+      ],
+      "file": "docs/features/ingest/tasks/t11-tests-ingest-e2e.md",
+      "status": "done"
+    },
+    {
+      "id": "T12",
+      "title": "Скрипт Оператора: створити БД rover і ролі owner, ingest, viewer",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-15",
+        "AC-16"
+      ],
+      "dod": "`shellcheck ops/bootstrap_db.sh` без зауважень (або `bash -n`, якщо shellcheck відсутній); повторний запуск на тестовому Postgres нічого не ламає",
+      "files_hint": [
+        "ops/bootstrap_db.sh",
+        "ops/README.md"
+      ],
+      "file": "docs/features/ingest/tasks/t12-ops-db-bootstrap.md",
+      "status": "done"
+    },
+    {
+      "id": "T13",
+      "title": "Скрипти Оператора: ACL брокера, пробна публікація, перевірка запуску, відкат",
+      "layer": "docs",
+      "deps": [
+        "T10",
+        "T12"
+      ],
+      "acs": [
+        "AC-13",
+        "AC-14",
+        "AC-19",
+        "AC-20"
+      ],
+      "dod": "`shellcheck ops/*.sh` без зауважень (або `bash -n`); на тестовому Mosquitto пробна публікація дозволена на `session` і відхилена на інший топік",
+      "files_hint": [
+        "ops/acl.narrow.template",
+        "ops/probe_publish.sh",
+        "ops/verify_launch.sh",
+        "ops/rollback_acl.sh",
+        "ops/README.md"
+      ],
+      "file": "docs/features/ingest/tasks/t13-ops-broker-acl-launch.md",
+      "status": "done"
+    }
+  ]
+}
