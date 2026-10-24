@@ -1,3 +1,7 @@
+{% from '_macros.html' import session_row, gap_marker %}
 <section aria-label="Виїзди">
   <h2>Виїзди</h2>
+  {% for item in items %}
+  {% if item.session is defined %}{{ session_row(item.session) }}{% else %}{{ gap_marker(item) }}{% endif %}
+  {% endfor %}
 </section>

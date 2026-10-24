@@ -41,6 +41,9 @@ updated_at: "2026-10-24"
 | Картка показника (макрос) | `src/rover_telemetry/web/templates/_macros.html:7` | default / немає даних | Значення + підпис + одиниця; `NULL` → «немає даних» |
 | Порожній стан «немає даних» (макрос) | `src/rover_telemetry/web/templates/_macros.html:2` | default | Єдиний вигляд відсутнього значення; не нуль |
 | Повідомлення стану (макрос) | `src/rover_telemetry/web/templates/_macros.html:15` | default | Текст на місці підсумків і списку для станів empty / error |
+| Рядок виїзду (макрос) | `src/rover_telemetry/web/templates/_macros.html:27` | collapsed / expanded | Нативний `<details>`/`<summary>`, шапка ≥ 44 px, 10 полів AC-03, без скриптів (feature ADR-0002) |
+| Позначка пропуску (макрос) | `src/rover_telemetry/web/templates/_macros.html:47` | default | Нерозгортуваний рядок зі штриховою рамкою; однакова для втраченого й відхиленого номера |
+| Блок звіту (макрос) | `src/rover_telemetry/web/templates/_macros.html:22` | default | `<pre>` з форматованим JSON із `payload`; екранує лише autoescape |
 | Графік ECharts | `docs/architecture-map.md:109` (`web/static/echarts.min.js`) | default / loading / empty / error | Дані з JSON-ендпоінтів FastAPI (`docs/architecture-map.md:110`); без CDN |
 
 ## Interaction & writing conventions
