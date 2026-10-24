@@ -1,0 +1,382 @@
+{
+  "slug": "dashboard-charts",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Розширити StoredSession полями графіків і додати domain/charts.py: константи з джерелами, Value/Absent/AbsentReason, вісь за номером сесії з порожніми місцями",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-15",
+        "AC-16",
+        "AC-23",
+        "AC-17"
+      ],
+      "dod": "юніт-тести осі й типів проходять без Docker (`pytest -m 'not integration'`)",
+      "files_hint": [
+        "src/rover_telemetry/domain/dashboard.py",
+        "src/rover_telemetry/domain/charts.py",
+        "tests/unit/test_charts_axis.py",
+        "tests/conftest.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t1-domain-charts-core.md",
+      "status": "todo"
+    },
+    {
+      "id": "T2",
+      "title": "Читати в read_snapshot нові колонки sessions для графіків тим самим знімком",
+      "layer": "infra",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-22",
+        "AC-23"
+      ],
+      "dod": "інтеграційний тест `test_reading.py` на всіх колонках проходить (потрібен Docker)",
+      "files_hint": [
+        "src/rover_telemetry/db/reading.py",
+        "tests/integration/test_reading.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t2-infra-read-chart-columns.md",
+      "status": "todo"
+    },
+    {
+      "id": "T3",
+      "title": "Побудувати в domain ряди блоку «Акумулятор»: три напруги, напруга на банку, просадка, причина завершення, відсутні значення",
+      "layer": "domain",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-04"
+      ],
+      "dod": "юніт-тести блоку «Акумулятор» проходять без Docker: AC-01…AC-04 виражені в `domain`",
+      "files_hint": [
+        "src/rover_telemetry/domain/charts.py",
+        "tests/unit/test_charts_battery.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t3-domain-battery-series.md",
+      "status": "todo"
+    },
+    {
+      "id": "T4",
+      "title": "Побудувати в domain ряди блоку «Перешкоди»: найменша відстань і датчик, «утримань не було», лічильники датчиків, секунди вимкненого захисту",
+      "layer": "domain",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-06",
+        "AC-07",
+        "AC-08",
+        "AC-09"
+      ],
+      "dod": "юніт-тести блоку «Перешкоди» проходять без Docker: AC-05…AC-09 виражені в `domain`",
+      "files_hint": [
+        "src/rover_telemetry/domain/charts.py",
+        "tests/unit/test_charts_obstacles.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t4-domain-obstacles-series.md",
+      "status": "todo"
+    },
+    {
+      "id": "T5",
+      "title": "Побудувати в domain ряди блоку «Рух і борти»: швидкості в об/хв і м/с, різниця бортів, причини відсутності, «без енкодера»",
+      "layer": "domain",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "юніт-тести блоку «Рух і борти» проходять без Docker: AC-10…AC-13 виражені в `domain`",
+      "files_hint": [
+        "src/rover_telemetry/domain/charts.py",
+        "tests/unit/test_charts_motion.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t5-domain-motion-series.md",
+      "status": "todo"
+    },
+    {
+      "id": "T6",
+      "title": "Додати в web/formatting.py підписи причин відсутності, датчиків і бортів, м/с, об/хв і напругу на банку",
+      "layer": "ui",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-08",
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "юніт-тести `test_formatting.py` проходять без Docker",
+      "files_hint": [
+        "src/rover_telemetry/web/formatting.py",
+        "src/rover_telemetry/web/templating.py",
+        "tests/unit/test_formatting.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t6-ui-formatting-labels.md",
+      "status": "todo"
+    },
+    {
+      "id": "T7",
+      "title": "Закріпити ECharts у web/static з VENDOR.md, віддавати /static з no-cache і перевірити в браузері, що canvas працює під незміненим CSP",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-21"
+      ],
+      "dod": "`pytest -m 'not integration'` зелений без браузера (e2e пропущено)",
+      "files_hint": [
+        "src/rover_telemetry/web/static/echarts.min.js",
+        "src/rover_telemetry/web/static/VENDOR.md",
+        "src/rover_telemetry/web/app.py",
+        "pyproject.toml",
+        "tests/e2e/test_echarts_csp.py",
+        "tests/unit/test_dashboard_route.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t7-infra-vendor-echarts-csp-smoke.md",
+      "status": "todo"
+    },
+    {
+      "id": "T8",
+      "title": "Додати токени --chart-* з тестом контрасту та макроси «Блок графіка», «Список приміток», «Схему-заповнювач» зі станами блока",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-17",
+        "AC-18",
+        "AC-19"
+      ],
+      "dod": "тест токенів: кожен `--chart-*` ≥ 4.5:1 з тлом",
+      "files_hint": [
+        "src/rover_telemetry/web/static/app.css",
+        "src/rover_telemetry/web/templates/_macros.html",
+        "tests/unit/test_chart_tokens.py",
+        "tests/unit/test_templates_charts.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t8-ui-block-shell-css.md",
+      "status": "todo"
+    },
+    {
+      "id": "T9",
+      "title": "Додати web/chart_blocks.py: реєстр блоків з ізоляцією збою кожного блоку, лог chart_block_failed і вивід блоків між підсумками та виїздами",
+      "layer": "ports",
+      "deps": [
+        "T8"
+      ],
+      "acs": [
+        "AC-19",
+        "AC-17",
+        "AC-22"
+      ],
+      "dod": "тести ізоляції блоків проходять без Docker: 3 з 3 незалежні (підставні збої по одному)",
+      "files_hint": [
+        "src/rover_telemetry/web/chart_blocks.py",
+        "src/rover_telemetry/web/app.py",
+        "src/rover_telemetry/web/templates/dashboard.html",
+        "tests/unit/test_chart_blocks.py",
+        "tests/unit/test_dashboard_route.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t9-ports-chart-blocks-registry.md",
+      "status": "todo"
+    },
+    {
+      "id": "T10",
+      "title": "Побудувати блок «Акумулятор»: шаблон _charts_battery.html, опис, примітки і дані блока (напруга, на банку, просадка, причина завершення)",
+      "layer": "ui",
+      "deps": [
+        "T3",
+        "T6",
+        "T9"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-03",
+        "AC-04",
+        "AC-14"
+      ],
+      "dod": "тести шаблону блока проходять без Docker; дані блока серіалізуються через `|tojson`",
+      "files_hint": [
+        "src/rover_telemetry/web/chart_blocks.py",
+        "src/rover_telemetry/web/templates/_charts_battery.html",
+        "tests/unit/test_templates_charts_battery.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t10-ui-battery-block.md",
+      "status": "todo"
+    },
+    {
+      "id": "T11",
+      "title": "Побудувати блок «Перешкоди»: шаблон _charts_obstacles.html зі схемою датчиків (SVG), карткою «Утримань усього», описом, примітками і даними блока",
+      "layer": "ui",
+      "deps": [
+        "T4",
+        "T6",
+        "T9"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-06",
+        "AC-08",
+        "AC-09",
+        "AC-14"
+      ],
+      "dod": "тести шаблону блока проходять без Docker: схема працює без скрипта (чистий SVG/HTML)",
+      "files_hint": [
+        "src/rover_telemetry/web/chart_blocks.py",
+        "src/rover_telemetry/web/templates/_charts_obstacles.html",
+        "src/rover_telemetry/web/templates/_macros.html",
+        "tests/unit/test_templates_charts_obstacles.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t11-ui-obstacles-block.md",
+      "status": "todo"
+    },
+    {
+      "id": "T12",
+      "title": "Побудувати блок «Рух і борти»: шаблон _charts_motion.html, опис, примітки «немає даних»/«без енкодера» і дані блока",
+      "layer": "ui",
+      "deps": [
+        "T5",
+        "T6",
+        "T9"
+      ],
+      "acs": [
+        "AC-11",
+        "AC-12",
+        "AC-13",
+        "AC-14"
+      ],
+      "dod": "тести шаблону блока проходять без Docker",
+      "files_hint": [
+        "src/rover_telemetry/web/chart_blocks.py",
+        "src/rover_telemetry/web/templates/_charts_motion.html",
+        "tests/unit/test_templates_charts_motion.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t12-ui-motion-block.md",
+      "status": "todo"
+    },
+    {
+      "id": "T13",
+      "title": "Додати static/charts.js: ініціалізація ECharts по блоках з ізоляцією збою, вісь із порожніми слотами, підказка через textContent і графіки блока «Акумулятор»",
+      "layer": "ui",
+      "deps": [
+        "T7",
+        "T9",
+        "T10"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-15",
+        "AC-16",
+        "AC-18",
+        "AC-19"
+      ],
+      "dod": "статичний тест `charts.js` проходить без браузера (немає заборонених викликів і доменних чисел)",
+      "files_hint": [
+        "src/rover_telemetry/web/static/charts.js",
+        "src/rover_telemetry/web/templates/dashboard.html",
+        "tests/unit/test_charts_js_static.py",
+        "tests/e2e/test_charts_battery.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t13-ui-charts-js-core-battery.md",
+      "status": "todo"
+    },
+    {
+      "id": "T14",
+      "title": "Додати в charts.js графіки блока «Перешкоди»: найменша відстань на тлі порога 190 мм і секунди вимкненого захисту",
+      "layer": "ui",
+      "deps": [
+        "T11",
+        "T13"
+      ],
+      "acs": [
+        "AC-07",
+        "AC-08",
+        "AC-09"
+      ],
+      "dod": "e2e блока «Перешкоди» проходить у Chromium на 360 px: 0 порушень CSP, 0 сторонніх запитів",
+      "files_hint": [
+        "src/rover_telemetry/web/static/charts.js",
+        "tests/e2e/test_charts_obstacles.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t14-ui-charts-js-obstacles.md",
+      "status": "todo"
+    },
+    {
+      "id": "T15",
+      "title": "Додати в charts.js графіки блока «Рух і борти»: швидкість бортів у м/с із піками та різниця бортів із причинами відсутності",
+      "layer": "ui",
+      "deps": [
+        "T12",
+        "T13"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-11",
+        "AC-12"
+      ],
+      "dod": "e2e блока «Рух і борти» проходить у Chromium на 360 px: 0 порушень CSP",
+      "files_hint": [
+        "src/rover_telemetry/web/static/charts.js",
+        "tests/e2e/test_charts_motion.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t15-ui-charts-js-motion.md",
+      "status": "todo"
+    },
+    {
+      "id": "T16",
+      "title": "Додати наскрізні браузерні тести сторінки: 360 px, дотик, 0 сторонніх запитів, CSP, збій кожного блока, XSS-фікстура",
+      "layer": "tests",
+      "deps": [
+        "T13",
+        "T14"
+      ],
+      "acs": [
+        "AC-18",
+        "AC-19",
+        "AC-21"
+      ],
+      "dod": "e2e-набір проходить у Chromium на 360 px",
+      "files_hint": [
+        "tests/e2e/test_dashboard_page.py",
+        "tests/e2e/conftest.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t16-tests-e2e-page.md",
+      "status": "todo"
+    },
+    {
+      "id": "T17",
+      "title": "Додати інтеграційні тести сторінки на реальному Postgres: свіжість, дубль і відхилене, порожнє сховище, лише читання, затримка на 1000 виїздів",
+      "layer": "tests",
+      "deps": [
+        "T2",
+        "T9",
+        "T10",
+        "T11"
+      ],
+      "acs": [
+        "AC-17",
+        "AC-20",
+        "AC-22",
+        "AC-23"
+      ],
+      "dod": "інтеграційні тести проходять з Docker (`pytest`)",
+      "files_hint": [
+        "tests/integration/test_charts_page.py",
+        "tests/integration/test_charts_latency.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t17-tests-integration-page.md",
+      "status": "todo"
+    }
+  ]
+}
