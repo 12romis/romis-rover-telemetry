@@ -212,7 +212,7 @@
         "tests/unit/test_templates_charts_battery.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t10-ui-battery-block.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T11",
