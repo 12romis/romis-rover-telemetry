@@ -9,8 +9,8 @@ files_hint: ["src/rover_telemetry/web/static/charts.js", "src/rover_telemetry/we
 owner: "12romis"
 estimate: "L"
 context_budget: "M"
-status: "todo"
-step: ""
+status: "done"
+step: "COMMIT"
 ---
 
 <!-- Принцип файлу: вбудований зріз, що потрібен задачі, з підписом джерела; посилання — запасний шлях. Кожен шматок має підпис `<file> §<section>, <id>, verbatim|abridged`. Джерело завжди важливіше за вбудовану копію. -->

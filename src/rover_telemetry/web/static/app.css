@@ -137,6 +137,10 @@ body {
   overflow: hidden;
 }
 .chart[hidden] { display: none; }
+.chart-tip-box { white-space: normal !important; max-width: calc(100vw - 4rem); }
+.chart-tip { text-align: left; font-size: 0.8125rem; line-height: 1.4; }
+.chart-tip strong { display: block; margin-bottom: var(--space-1); }
+.chart-tip em { font-style: italic; color: var(--color-no-data); }
 .chart-notes { margin: var(--space-3) 0; padding-left: var(--space-5); color: var(--color-muted); }
 .chart-notes li { margin-bottom: var(--space-1); }
 .chart-warning { margin: var(--space-3) 0 0; color: var(--color-muted); font-size: 0.875rem; }

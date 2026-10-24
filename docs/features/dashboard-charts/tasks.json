@@ -289,7 +289,7 @@
         "tests/e2e/test_charts_battery.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t13-ui-charts-js-core-battery.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T14",

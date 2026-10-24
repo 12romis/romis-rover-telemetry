@@ -246,8 +246,9 @@ def test_report_strings_never_reach_html_unescaped(stored_session: Factory) -> N
 
     assert "alert(1)" not in re.sub(r'id="chart-data-obstacles">.*?</script>', "", html, flags=re.S)
     assert data_of(html)["sensor_raw"] == [evil]
-    # скрипти на сторінці — лише блоки даних, інших немає
-    assert html.count("<script") == html.count('<script type="application/json"')
+    # скрипти на сторінці — лише блоки даних і власні файли `/static/`, інших немає
+    allowed = html.count('<script type="application/json"') + html.count('<script src="/static/')
+    assert html.count("<script") == allowed
 
 
 @pytest.mark.parametrize("n", [26, 27])
