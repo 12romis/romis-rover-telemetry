@@ -188,7 +188,7 @@
         "tests/unit/test_dashboard_route.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t9-ports-chart-blocks-registry.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T10",
