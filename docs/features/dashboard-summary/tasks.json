@@ -19,7 +19,7 @@
         "tests/conftest.py"
       ],
       "file": "docs/features/dashboard-summary/tasks/t1-domain-summary.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T2",

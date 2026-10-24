@@ -8,7 +8,7 @@
 
 | # | Task | Layer | Owner | Estimate | Blocked by | Status | Step |
 |---|---|---|---|---|---|---|---|
-| T1 | [Додати в domain типи виїзду, підсумки з Total(sum, missing) і класифікацію причини завершення](./t1-domain-summary.md) | domain | 12romis | M | — | todo | — |
+| T1 | [Додати в domain типи виїзду, підсумки з Total(sum, missing) і класифікацію причини завершення](./t1-domain-summary.md) | domain | 12romis | M | — | done | — |
 | T2 | [Додати в domain хронологію виїздів із позначками номерів без виїзду](./t2-domain-timeline.md) | domain | 12romis | S | T1 | todo | — |
 | T3 | [Додати читання одного знімка лише для читання (db/reading.py) і налаштування таймаутів web](./t3-infra-read-snapshot.md) | infra | 12romis | M | T1 | todo | — |
 | T4 | [Додати web/formatting.py: «отримано» за Києвом, одиниці, підписи причин, назва ровера, текст звіту](./t4-ui-formatting.md) | ui | 12romis | M | T1 | todo | — |

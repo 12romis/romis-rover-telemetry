@@ -14,6 +14,8 @@ import psycopg
 import pytest
 from yoyo import get_backend, read_migrations
 
+from rover_telemetry.domain.dashboard import StoredSession
+
 FIXTURES = Path(__file__).parent / "fixtures"
 POSTGRES_IMAGE = "pgvector/pgvector:pg16"
 MIGRATIONS = Path(__file__).parents[1] / "migrations"
@@ -186,3 +188,15 @@ def ingest_url(migrated_db: str) -> str:
 def viewer_url(migrated_db: str) -> str:
     """Рядок підключення до `migrated_db` від ролі `viewer` (лише SELECT)."""
     return role_url(migrated_db, "viewer", migrated_db.rsplit("/", 1)[1])
+
+
+@pytest.fixture
+def stored_session() -> Callable[..., StoredSession]:
+    """Фабрика виїзду з БД: за замовчуванням усе `None`; поля задаються іменованими аргументами."""
+    from datetime import UTC, datetime
+
+    def make(mac: str = "288485922c94", seq: int = 1, **fields: Any) -> StoredSession:
+        base: dict[str, Any] = {"received_at": datetime(2026, 10, 23, 12, 0, tzinfo=UTC)}
+        return StoredSession(mac=mac, seq=seq, **{**base, **fields})
+
+    return make

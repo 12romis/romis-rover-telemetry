@@ -9,7 +9,7 @@ files_hint: ["src/rover_telemetry/domain/dashboard.py", "tests/unit/test_dashboa
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
-status: "todo"
+status: "done"
 step: ""
 ---
 
