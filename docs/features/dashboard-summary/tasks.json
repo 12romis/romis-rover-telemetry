@@ -181,7 +181,7 @@
         "tests/unit/test_smoke.py"
       ],
       "file": "docs/features/dashboard-summary/tasks/t8-ports-dashboard-route.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T9",

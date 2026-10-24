@@ -15,7 +15,7 @@
 | T5 | [Створити базовий макет, токени CSS, макроси «немає даних»/картка/повідомлення та блок «Опис»](./t5-ui-base-layout.md) | ui | 12romis | M | — | done | — |
 | T6 | [Побудувати сторінку dashboard.html: опис, вісім карток підсумків, стани empty і error](./t6-ui-summary-block.md) | ui | 12romis | M | T1, T4, T5 | done | — |
 | T7 | [Побудувати список виїздів: розгортуваний рядок (details), позначка пропуску, блок повного звіту](./t7-ui-sessions-list.md) | ui | 12romis | M | T2, T4, T6 | done | — |
-| T8 | [Додати маршрут GET / з читанням знімка, 503 при недоступному сховищі, заголовками безпеки і /static](./t8-ports-dashboard-route.md) | ports | 12romis | M | T3, T6, T7 | todo | — |
+| T8 | [Додати маршрут GET / з читанням знімка, 503 при недоступному сховищі, заголовками безпеки і /static](./t8-ports-dashboard-route.md) | ports | 12romis | M | T3, T6, T7 | done | — |
 | T9 | [Підготувати публікацію: alias rover-web у compose, фрагмент Caddyfile, runbook і скрипт перевірки](./t9-wiring-publish-ops.md) | wiring | 12romis | S | T8 | todo | — |
 | T10 | [Додати інтеграційні тести сторінки на реальному Postgres: свіжість, дубль, запис, затримка, зовнішні запити](./t10-tests-dashboard-e2e.md) | tests | 12romis | M | T8 | todo | — |
 
