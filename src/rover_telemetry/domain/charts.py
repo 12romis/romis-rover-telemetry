@@ -7,6 +7,7 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
+from typing import Literal
 
 from rover_telemetry.domain.dashboard import (
     EndReason,
@@ -215,3 +216,102 @@ def build_obstacles(axis: list[Slot]) -> ObstacleBlock:
         ),
         protection_off_any=any((s.tof_control_off_ms or 0) > 0 for s in sessions),
     )
+
+
+# --- Блок «Рух і борти» (AC-10…AC-13) --------------------------------------------------------
+
+
+class Side(Enum):
+    LEFT = "left"
+    RIGHT = "right"
+
+
+@dataclass(frozen=True)
+class SpeedValue:
+    """Швидкість борту: об/хв колеса з контракту і м/с за його формулою."""
+
+    rpm: float
+    mps: float
+
+
+SpeedPoint = SpeedValue | Absent
+
+
+@dataclass(frozen=True)
+class MotionPoint:
+    """Швидкості бортів і різниця; `faster` — за знаком різниці (плюс — лівий швидший)."""
+
+    seq: int
+    is_gap: bool
+    left_avg: SpeedPoint | None
+    left_peak: SpeedPoint | None
+    right_avg: SpeedPoint | None
+    right_peak: SpeedPoint | None
+    imbalance_pct: Point | None
+    faster: Side | Literal["equal"] | None
+    no_encoder: tuple[Side, ...]
+
+
+@dataclass(frozen=True)
+class MotionBlock:
+    points: list[MotionPoint]
+    any_no_encoder: bool
+
+
+def _speed(rpm: float | None, side: Side, s: StoredSession) -> SpeedPoint:
+    """Значення, що є, лишається числом; причина відсутності — за пріоритетом ADR-0003."""
+    if rpm is not None:
+        return SpeedValue(rpm, rpm * WHEEL_CIRCUMFERENCE_M / SECONDS_PER_MINUTE)
+    if s.moving_ms == 0:
+        return Absent(AbsentReason.NOT_MOVING)
+    if (s.encoders_left if side is Side.LEFT else s.encoders_right) is False:
+        return Absent(AbsentReason.NO_ENCODER, side.value)
+    return Absent(AbsentReason.NOT_REPORTED, "швидкість")
+
+
+def _no_encoder(s: StoredSession) -> tuple[Side, ...]:
+    """Позначка «без енкодера» не залежить від пріоритету причин (AC-13); `None` не позначається."""
+    sides = ((Side.LEFT, s.encoders_left), (Side.RIGHT, s.encoders_right))
+    return tuple(side for side, present in sides if present is False)
+
+
+def _imbalance(s: StoredSession, missing: tuple[Side, ...]) -> Point:
+    if s.speed_imbalance_pct is not None:
+        return Value(s.speed_imbalance_pct)
+    if s.moving_ms == 0:
+        return Absent(AbsentReason.NOT_MOVING)
+    if missing:
+        return Absent(AbsentReason.NO_ENCODER, ",".join(side.value for side in missing))
+    return Absent(AbsentReason.NO_STRAIGHT)
+
+
+def _faster(imbalance: Point) -> Side | Literal["equal"] | None:
+    if not isinstance(imbalance, Value):
+        return None
+    if imbalance.number == 0:
+        return "equal"
+    return Side.LEFT if imbalance.number > 0 else Side.RIGHT
+
+
+def _motion_point(slot: Slot) -> MotionPoint:
+    s = slot.session
+    if s is None:
+        return MotionPoint(slot.seq, True, None, None, None, None, None, None, ())
+    missing = _no_encoder(s)
+    imbalance = _imbalance(s, missing)
+    return MotionPoint(
+        seq=slot.seq,
+        is_gap=False,
+        left_avg=_speed(s.speed_left_avg_rpm, Side.LEFT, s),
+        left_peak=_speed(s.speed_left_peak_rpm, Side.LEFT, s),
+        right_avg=_speed(s.speed_right_avg_rpm, Side.RIGHT, s),
+        right_peak=_speed(s.speed_right_peak_rpm, Side.RIGHT, s),
+        imbalance_pct=imbalance,
+        faster=_faster(imbalance),
+        no_encoder=missing,
+    )
+
+
+def build_motion(axis: list[Slot]) -> MotionBlock:
+    points = [_motion_point(slot) for slot in axis]
+    return MotionBlock(points=points, any_no_encoder=any(p.no_encoder for p in points))

@@ -103,7 +103,7 @@
         "tests/unit/test_charts_motion.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t5-domain-motion-series.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T6",
