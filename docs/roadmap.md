@@ -22,9 +22,7 @@ updated_at: "2026-10-24"
 | 1 | Скелет проєкту: пакет, pytest із фікстурами, міграції, ruff/mypy, Docker, CI | `docs/architecture-map.md` Module inventory, `docs/features/_scaffold/tasks.json` | M | shipped |
 | 2 | Звіти зберігаються: розбір за контрактом, БД `rover` (`sessions`, `rejected`, ролі), ingest, звужений ACL брокера і запуск у проді з перевіркою реального звіту | `docs/idea-brief.md` §7 Recommendation | M | shipped → [`docs/features/ingest/`](features/ingest/spec.md) |
 | 3 | Публічний дашборд: дизайн-канон, каркас `web`, домен через Caddy, блок «Підсумки + таблиця виїздів» | `docs/idea-brief.md` §5 Out of scope | M | shipped → [`docs/features/dashboard-summary/`](features/dashboard-summary/spec.md) |
-| 4 | Блок «Акумулятор»: старт, мінімум, кінець, просадка по виїздах | `docs/idea-brief.md` §5 Out of scope | M | idea |
-| 5 | Блок «Перешкоди»: схема ровера з 4 датчиками (`holds.by_sensor`) і розподіл `holds.min_mm` проти порога | `docs/idea-brief.md` §5 Out of scope | L | idea |
-| 6 | Блок «Рух і борти»: лівий проти правого, швидкості, сесії без енкодера | `docs/idea-brief.md` §5 Out of scope | M | idea |
+| 4 | Блоки з графіками на одній сторінці: «Акумулятор» (старт, мінімум, кінець, просадка), «Перешкоди» (схема з 4 датчиками `holds.by_sensor`, `holds.min_mm` проти порога) і «Рух і борти» (лівий проти правого, швидкості, сесії без енкодера); об'єднані колишні кроки 4, 5, 6 | `docs/idea-brief.md` §5 Out of scope | L | idea |
 | 7 | Щоденний `pg_dump` | `docs/idea-brief.md` §5 Out of scope | S | idea |
 | 8 | Решта графіків: активність у часі, цикли заряду, склад часу виїзду, якість даних → see [Not yet specified](#not-yet-specified) | `docs/idea-brief.md` §5 Out of scope | fog | idea |
 
@@ -47,7 +45,7 @@ updated_at: "2026-10-24"
 
 | # | Question | Type | Owner | Blocks |
 |---|---|:---:|:---:|:---:|
-| D1 | Як подати вибірку з кількох виїздів, щоб не ввести глядачів в оману (`by_sensor` рахує датчики, злипання за «отримано», `null` проти 0) — для кроку 3 закрито (`null` проти 0, пропуски, «отримано»); `by_sensor` лишається для кроку 5, злипання за «отримано» — для кроків 4, 8 | grilling | human | 5 |
+| D1 | Як подати вибірку з кількох виїздів, щоб не ввести глядачів в оману (`by_sensor` рахує датчики, злипання за «отримано», `null` проти 0) — для кроку 3 закрито (`null` проти 0, пропуски, «отримано»); `by_sensor` лишається для кроку 4 (блок «Перешкоди»), злипання за «отримано» — для кроків 4, 8 | grilling | human | 5 |
 | D2 | Точне правило нового циклу заряду | grilling | human | 8 |
 | D3 | Чи існує вже постійна сесія підписника на брокері (`docker logs mosquitto` під час першого підключення ingest; порівняти перший `seq` із 27) — **вирішено 2026-10-24**: черга була, перший `seq` 36 | research | agent | 2 |
 | D4 | Створити DNS-запис `rover.romis.cloud` до розгортання | task | human | 3 |
@@ -84,8 +82,8 @@ flowchart LR
 |:---:|---|---|---|
 | 1 | 1 | `pyproject.toml`, `Dockerfile`, `.github/` (new) | 2, 3 |
 | 2 | 2 | `src/rover_telemetry/domain/`, `db/`, `ingest/`, `migrations/` (new); поза репо — `/opt/mosquitto/config/acl` | 3, 7 |
-| 3 | 3 | `src/rover_telemetry/web/` (каркас, `base.html`, `app.css`), `/opt/n8n/Caddyfile` (new) | 4, 5, 6, 8 |
-| 4 | 4 ∥ 5 ∥ 6 | 4: `web/blocks/battery` · 5: `web/blocks/obstacles` · 6: `web/blocks/motion` (new, окремі маршрут і шаблон кожного; спільна сторінка дашборду — місце потенційного конфлікту) | 8 |
+| 3 | 3 | `src/rover_telemetry/web/` (каркас, `base.html`, `app.css`), `/opt/n8n/Caddyfile` (new) | 4, 8 |
+| 4 | 4 | `web/blocks/battery`, `web/blocks/obstacles`, `web/blocks/motion` (new; одна фіча: три блоки з окремим маршрутом і шаблоном на спільному каркасі графіків; кроки 4, 5, 6 об'єднано рішенням власника 2026-10-24, номери 5 і 6 не перевикористовуються) | 8 |
 | 5 | 7 | `ops/backup` (new), після презентації за рішенням власника №6 | — |
 
 Крок 8 — fog, у хвилі не входить; спершу розвідка.
