@@ -168,3 +168,15 @@ def test_stored_row_matches_fixture_bytes(
     assert stored.pop("payload") == doc
     for column, value in stored.items():
         assert value == getattr(parsed, column), column
+
+
+@pytest.mark.parametrize("value", [1e305, -1.7e308, 10**308])
+def test_large_number_in_double_column_is_stored(
+    conn: psycopg.Connection, migrated_db: str, report_seq26: dict[str, Any], value: Any
+) -> None:
+    """G1: те, що розбір пропускає в number-поле, сховище справді приймає."""
+    report = {**report_seq26, "speed": {**report_seq26.get("speed", {}), "left_avg_rpm": value}}
+    assert handle_message(conn, TOPIC, json.dumps(report).encode(), _now()) is Outcome.STORED
+    with psycopg.connect(migrated_db) as c:
+        row = c.execute("SELECT speed_left_avg_rpm FROM sessions").fetchone()
+    assert row == (float(value),)

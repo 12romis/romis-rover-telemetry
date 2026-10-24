@@ -240,6 +240,30 @@ def test_narrow_twice_is_refused_and_keeps_the_original_backup(broker: Broker) -
     assert "topic readwrite rover/#" in _acl(broker)
 
 
+def test_narrow_twice_is_refused_even_if_block_was_edited(broker: Broker) -> None:
+    """G5: коментар у звуженому блоці не має відкрити шлях до затирання acl.bak."""
+    assert broker.run("apply_acl.sh", "read").returncode == 0
+    before = _acl(broker)
+    assert broker.run("apply_acl.sh", "narrow").returncode == 0
+    edited = _acl(broker).replace("user RomisRover\n", "user RomisRover\n# правлено вручну\n")
+    assert edited != _acl(broker)
+    (broker.conf_dir / "acl").write_text(edited)
+    again = broker.run("apply_acl.sh", "narrow")
+    assert again.returncode != 0
+    assert (broker.conf_dir / "acl.bak").read_text() == before
+    assert _acl(broker) == edited
+
+
+def test_check_anon_reports_unreachable_container_not_open_broker(broker: Broker) -> None:
+    """G4: недоступний контейнер — це «не вдалося перевірити», а не «пускає анонімів»."""
+    result = broker.run(
+        "apply_acl.sh", "check-anon", extra={"MOSQUITTO_CONTAINER": "no-such-container-xyz"}
+    )
+    assert result.returncode != 0
+    assert "Не вдалося" in result.stderr
+    assert "приймає анонімне" not in result.stderr
+
+
 def test_check_anon_passes_when_broker_refuses_anonymous(broker: Broker) -> None:
     """AC-14: перевірка йде по живому брокеру."""
     result = broker.run("apply_acl.sh", "check-anon")

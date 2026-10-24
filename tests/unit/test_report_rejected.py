@@ -217,8 +217,8 @@ def test_unstorable_content_is_not_json(payload: bytes) -> None:
         (("seq",), -(2**31) - 1),
         (("duration_ms",), 2**31),
         (("holds", "count"), 2**40),
-        (("speed", "left_avg_rpm"), 1e301),
-        (("speed", "left_avg_rpm"), -1e301),
+        (("speed", "left_avg_rpm"), 10**309),  # не вміщується в double precision
+        (("speed", "left_avg_rpm"), -(10**309)),
     ],
 )
 def test_value_that_does_not_fit_its_column_is_bad_type(
@@ -247,3 +247,14 @@ def test_mac_must_be_12_lowercase_hex(report_seq26: dict[str, Any], mac: str) ->
     """Контракт: 12 hex, нижній регістр; навіть якщо топік і звіт збігаються (review F3)."""
     report = {**report_seq26, "mac": mac}
     assert _reject(_dump(report), topic=f"rover/{mac}/session").reason_code == "bad_type"
+
+
+@pytest.mark.parametrize("value", [1e305, -1.7e308, 10**308])
+def test_large_finite_number_that_fits_double_is_accepted(
+    report_seq26: dict[str, Any], value: Any
+) -> None:
+    """G1: межа — тип колонки (double precision), а не вигадане число без джерела."""
+    report = copy.deepcopy(report_seq26)
+    report.setdefault("speed", {})["left_avg_rpm"] = value
+    result = parse_report(f"rover/{MAC}/session", _dump(report), RECEIVED)
+    assert isinstance(result, ParsedSession)

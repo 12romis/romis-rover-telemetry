@@ -75,11 +75,10 @@ SCHEMA_VERSION = 1
 MAX_BYTES = 1024  # межа розміру з контракту (docs/contracts/events.md, «Доставка»)
 _MAC = re.compile(r"[0-9a-f]{12}")  # контракт: 12 hex, нижній регістр
 
-# Межі типів колонок `sessions` (data-model.md): `integer` — int32, `double precision` — скінченний
-# float. Це не бізнес-діапазони (перевірок діапазонів значень немає, AC-05), а відсів того, що
+# Межі типів колонок `sessions` (data-model.md): `integer` — int32, `double precision` — будь-яке
+# число, що вміщується в double. Це не бізнес-діапазони (їх немає, AC-05), а відсів того, що
 # сховище фізично не прийме: інакше воно б падало без ack і зациклювалось (review F1).
 _INT_MIN, _INT_MAX = -(2**31), 2**31 - 1
-_NUM_ABS_MAX = 1e300
 
 # Типи відомих полів (контракт); `null` і відсутність дозволені для всіх.
 _INT, _NUM, _STR, _BOOL = "int", "number", "string", "bool"
@@ -131,8 +130,12 @@ def _is_int32(value: Any) -> bool:
 
 def _is_number(value: Any) -> bool:
     if _is_int(value):
-        return bool(abs(value) <= _NUM_ABS_MAX)
-    return isinstance(value, float) and math.isfinite(value) and abs(value) <= _NUM_ABS_MAX
+        try:
+            float(value)
+        except OverflowError:  # ціле, більше за найбільший double
+            return False
+        return True
+    return isinstance(value, float) and math.isfinite(value)
 
 
 def _has_type(value: Any, kind: str) -> bool:

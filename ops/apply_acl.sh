@@ -35,10 +35,30 @@ reload() {
 }
 
 # AC-14: перевіряє живий брокер, а не файл конфігурації (include, listener-и тощо його обходять).
+# Коди: 0 аноніми відхилено, 1 брокер їх пускає, 2 перевірку не вдалося виконати (контейнер не
+# запущено, немає mosquitto_sub): це не відповідь про брокер, тож повідомлення інше.
 anonymous_refused() {
     local out
-    out="$(docker exec "$CONTAINER" mosquitto_sub -h localhost -d -W 2 -t 'rover/+/session' 2>&1 || true)"
+    if [[ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2> /dev/null)" != "true" ]]; then
+        return 2
+    fi
+    out="$(docker exec "$CONTAINER" mosquitto_sub -h localhost -d -W 2 -t 'rover/+/session' 2>&1)" \
+        || [[ $? -ne 126 && $? -ne 127 ]] || return 2
     grep -qi 'not authorised' <<< "$out"
+}
+
+# Друкує підсумок перевірки й завершує скрипт, якщо аноніми не відхилено.
+require_anonymous_refused() {
+    local code=0
+    anonymous_refused || code=$?
+    case "$code" in
+        0) ;;
+        2) echo "Не вдалося виконати перевірку анонімного доступу в контейнері $CONTAINER" \
+            "(не запущено чи немає mosquitto_sub)." >&2
+            exit 1 ;;
+        *) echo "Брокер приймає анонімне підключення: спершу allow_anonymous false (AC-14)." >&2
+            exit 1 ;;
+    esac
 }
 
 mode="${1:-}"
@@ -57,15 +77,16 @@ case "$mode" in
         reload
         ;;
     check-anon)
-        anonymous_refused || { echo "Брокер приймає анонімне підключення (AC-14)." >&2; exit 1; }
+        require_anonymous_refused
         echo "Анонімне підключення відхилено."
         ;;
     narrow)
-        if ! anonymous_refused; then
-            echo "Брокер приймає анонімне підключення: спершу allow_anonymous false (AC-14)." >&2
-            exit 1
-        fi
-        if [[ "$(block "$ACL" RomisRover)" == "$(block "$TEMPLATE" RomisRover)" ]]; then
+        require_anonymous_refused
+        # Уже звужено: блок збігається з шаблоном або (після ручної правки) в ньому немає readwrite.
+        # Тоді acl.bak — єдина копія повного доступу, і затирати його не можна.
+        current="$(block "$ACL" RomisRover)"
+        if [[ "$current" == "$(block "$TEMPLATE" RomisRover)" ]] ||
+            { [[ -f "$ACL_DIR/acl.bak" ]] && ! grep -q 'readwrite' <<< "$current"; }; then
             echo "RomisRover у $ACL уже звужено: повторний запуск затер би acl.bak звуженим ACL." >&2
             exit 1
         fi
