@@ -185,3 +185,65 @@ def test_order_first_failing_check_wins(report_seq26: dict[str, Any]) -> None:
     assert _reject(_dump(both), topic="rover/aabbccddeeff/session").reason_code == "id_mismatch"
     huge = _padded({**report_seq26, "event": "x"}, 1500)
     assert _reject(huge).reason_code == "too_large"
+
+
+# Повідомлення, які розбір колись пропускав, а Postgres не приймає: без відсіву на вході ingest
+# падав би без ack і зациклювався на одному повідомленні (review F1, AC-05, конституція №7).
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b'{"event":"rover.session.v1","schema_version":1,"mac":"288485922c94","seq":1,"x":NaN}',
+        b'{"event":"rover.session.v1","schema_version":1,"mac":"288485922c94","seq":1,"x":Infinity}',
+        b'{"event":"rover.session.v1","schema_version":1,"mac":"288485922c94","seq":1,"x":-Infinity}',
+        b'{"event":"rover.session.v1","schema_version":1,"mac":"288485922c94","seq":1,"x":1e999}',
+        b'{"event":"rover.session.v1","schema_version":1,"mac":"288485922c94","seq":1,"x":"\\u0000"}',
+        b'{"event":"rover.session.v1","schema_version":1,"mac":"288485922c94","seq":1,"\\u0000":1}',
+        b'{"event":"rover.session.v1","schema_version":1,"mac":"288485922c94","seq":1,"x":"\\ud800"}',
+        b'{"event":"rover.session.v1","schema_version":1,"mac":"288485922c94","seq":1,"x":[["\\u0000"]]}',
+        b"[" * 1000,
+        b"[" * 500 + b"]" * 500,
+    ],
+)
+def test_unstorable_content_is_not_json(payload: bytes) -> None:
+    rej = _reject(payload)
+    assert rej.reason_code == "not_json"
+    assert rej.raw == payload
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        (("seq",), 2**31),
+        (("seq",), -(2**31) - 1),
+        (("duration_ms",), 2**31),
+        (("holds", "count"), 2**40),
+        (("speed", "left_avg_rpm"), 1e301),
+        (("speed", "left_avg_rpm"), -1e301),
+    ],
+)
+def test_value_that_does_not_fit_its_column_is_bad_type(
+    report_seq26: dict[str, Any], path: tuple[str, ...], value: Any
+) -> None:
+    report = copy.deepcopy(report_seq26)
+    node = report
+    for key in path[:-1]:
+        node = node.setdefault(key, {})
+    node[path[-1]] = value
+    payload = json.dumps(report).encode()
+    assert _reject(payload).reason_code == "bad_type"
+
+
+@pytest.mark.parametrize("value", [2**31 - 1, -(2**31)])
+def test_int32_bounds_are_accepted(report_seq26: dict[str, Any], value: int) -> None:
+    report = {**report_seq26, "seq": value}
+    topic = f"rover/{MAC}/session"
+    assert isinstance(parse_report(topic, _dump(report), RECEIVED), ParsedSession)
+
+
+@pytest.mark.parametrize(
+    "mac", ["XYZ", "288485922C94", "288485922c9", "288485922c944", " 288485922c94"]
+)
+def test_mac_must_be_12_lowercase_hex(report_seq26: dict[str, Any], mac: str) -> None:
+    """Контракт: 12 hex, нижній регістр; навіть якщо топік і звіт збігаються (review F3)."""
+    report = {**report_seq26, "mac": mac}
+    assert _reject(_dump(report), topic=f"rover/{mac}/session").reason_code == "bad_type"

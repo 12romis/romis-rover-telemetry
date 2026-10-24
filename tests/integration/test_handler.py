@@ -1,19 +1,24 @@
 """Обробка одного повідомлення: розбір, запис, COMMIT, результат (AC-01, AC-03, AC-05, AC-06)."""
 
+import dataclasses
 import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import psycopg
 import pytest
 
+import rover_telemetry.ingest.handler as handler
 from rover_telemetry.db.sessions import connect
+from rover_telemetry.domain.report import ParsedSession, parse_report
 from rover_telemetry.ingest.handler import Outcome, handle_message
 
 pytestmark = pytest.mark.integration
 
+FIXTURES = Path(__file__).parents[1] / "fixtures"
 MAC = "288485922c94"
 TOPIC = f"rover/{MAC}/session"
 
@@ -114,3 +119,52 @@ def test_log_line_has_event_and_no_report_content(
     assert "SECRET-GARBAGE" not in joined
     assert "duration_ms" not in joined
     assert "voltage" not in joined
+
+
+@pytest.mark.parametrize(
+    "bad", [{"end_reason": "a\u0000b"}, {"duration_ms": 2**31}], ids=["nul", "int32-overflow"]
+)
+def test_value_postgres_refuses_is_stored_as_rejected(
+    conn: psycopg.Connection,
+    migrated_db: str,
+    report_seq26: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    bad: dict[str, Any],
+) -> None:
+    """F1, запобіжник: розбір пропустив значення, яке сховище не приймає -> rollback, rejected,
+    COMMIT, а не виняток (інакше брокер віддавав би це повідомлення без кінця)."""
+    payload = json.dumps(report_seq26).encode()
+    parsed = parse_report(TOPIC, payload, _now())
+    assert isinstance(parsed, ParsedSession)
+    monkeypatch.setattr(handler, "parse_report", lambda *a: dataclasses.replace(parsed, **bad))
+    assert handle_message(conn, TOPIC, payload, _now()) is Outcome.REJECTED
+    assert _count(migrated_db, "sessions") == 0
+    with psycopg.connect(migrated_db) as c:
+        row = c.execute("SELECT reason_code, raw, topic FROM rejected").fetchone()
+    assert row is not None
+    assert (row[0], bytes(row[1]), row[2]) == ("bad_type", payload, TOPIC)
+    monkeypatch.undo()
+    # З'єднання лишається придатним: наступне повідомлення зберігається.
+    assert handle_message(conn, TOPIC, payload, _now()) is Outcome.STORED
+
+
+@pytest.mark.parametrize("name", ["session_seq26.json", "session_seq27.json"])
+def test_stored_row_matches_fixture_bytes(
+    conn: psycopg.Connection, migrated_db: str, name: str
+) -> None:
+    """AC-02, AC-12 (ADR-0002): у БД дослівні байти файлу, payload = його розбір, усі колонки."""
+    raw = (FIXTURES / name).read_bytes()
+    doc = json.loads(raw)
+    topic = f"rover/{doc['mac']}/session"
+    assert handle_message(conn, topic, raw, _now()) is Outcome.STORED
+    parsed = parse_report(topic, raw, _now())
+    assert isinstance(parsed, ParsedSession)
+    columns = [f.name for f in dataclasses.fields(ParsedSession) if f.name != "received_at"]
+    with psycopg.connect(migrated_db) as c:
+        row = c.execute(f"SELECT {', '.join(columns)} FROM sessions").fetchone()
+    assert row is not None
+    stored = dict(zip(columns, row, strict=True))
+    assert bytes(stored.pop("raw")) == raw
+    assert stored.pop("payload") == doc
+    for column, value in stored.items():
+        assert value == getattr(parsed, column), column

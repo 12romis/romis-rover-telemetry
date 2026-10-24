@@ -7,7 +7,7 @@ from enum import StrEnum
 import psycopg
 
 from rover_telemetry.db.sessions import insert_rejected, insert_session
-from rover_telemetry.domain.report import ParsedSession, parse_report
+from rover_telemetry.domain.report import ParsedSession, parse_report, reject_unstorable
 
 log = logging.getLogger(__name__)
 
@@ -24,12 +24,18 @@ def handle_message(
     """Повертає результат лише після COMMIT, тож викликач підтверджує брокеру після нього.
 
     Помилку запису чи COMMIT не ловить: вона піднімається, результату (отже й `ack`) немає.
+    Єдиний виняток — сховище відмовило саме через значення звіту (клас 22, `DataError`): таке
+    повідомлення не мине й за повторної доставки, тож воно йде у відхилені, а не зациклює сервіс.
     """
     result = parse_report(topic, payload, received_at)
     if isinstance(result, ParsedSession):
-        outcome = Outcome.STORED if insert_session(conn, result) else Outcome.DUPLICATE
-        ids = f"mac={result.mac} seq={result.seq}"
-    else:
+        try:
+            outcome = Outcome.STORED if insert_session(conn, result) else Outcome.DUPLICATE
+            ids = f"mac={result.mac} seq={result.seq}"
+        except (psycopg.DataError, UnicodeEncodeError):
+            conn.rollback()
+            result = reject_unstorable(topic, payload, received_at)
+    if not isinstance(result, ParsedSession):
         insert_rejected(conn, result)
         outcome = Outcome.REJECTED
         ids = f"reason_code={result.reason_code}"

@@ -72,6 +72,12 @@ def make_on_message(
 
     def on_message(client: Any, userdata: Any, msg: Any) -> None:
         received_at = now()  # першим кроком: верхня межа часу сесії
+        if msg.retain:
+            # Контракт: retain вимкнено, тож це не звіт ровера. Брокер віддає retained після
+            # кожного (пере)підключення: зберігати його означало б множити відхилені на рестарт.
+            log.info("event=retained_skipped topic=%s", msg.topic)
+            client.ack(msg.mid, msg.qos)
+            return
         watchdog = threading.Timer(timeout_s, hung)
         watchdog.daemon = True
         watchdog.start()

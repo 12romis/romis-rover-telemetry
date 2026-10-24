@@ -45,8 +45,10 @@ class FakeClient:
         self.calls.append(("subscribe", topic, qos))
 
 
-def _msg() -> Any:
-    return SimpleNamespace(topic="rover/288485922c94/session", payload=b"{}", mid=7, qos=1)
+def _msg(retain: bool = False) -> Any:
+    return SimpleNamespace(
+        topic="rover/288485922c94/session", payload=b"{}", mid=7, qos=1, retain=retain
+    )
 
 
 def test_ack_follows_successful_handling_and_received_at_is_set_first() -> None:
@@ -176,3 +178,19 @@ def test_fast_handling_does_not_trigger_the_watchdog() -> None:
     on_message(FakeClient([]), None, _msg())
     time.sleep(0.3)
     assert exits == []
+
+
+def test_retained_message_is_acked_without_handling(caplog: pytest.LogCaptureFixture) -> None:
+    """Контракт: retain вимкнено, тож retained — не звіт ровера; без запису, інакше брокер
+    віддавав би його після кожного (пере)підключення (review F2)."""
+    calls: list[Any] = []
+
+    def handle(conn: Any, topic: str, payload: bytes, received_at: datetime) -> Outcome:
+        calls.append("handle")
+        return Outcome.STORED
+
+    on_message = make_on_message("CONN", handle=handle, now=lambda: STAMP)
+    with caplog.at_level(logging.INFO, logger="rover_telemetry.ingest.__main__"):
+        on_message(FakeClient(calls), None, _msg(retain=True))
+    assert calls == [("ack", 7, 1)]
+    assert any("event=retained_skipped" in r.getMessage() for r in caplog.records)

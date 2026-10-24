@@ -1,6 +1,8 @@
 """Розбір звіту сесії `rover.session.v1` без I/O (контракт: docs/contracts/events.md)."""
 
 import json
+import math
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -71,6 +73,13 @@ def _at(doc: dict[str, Any], *path: str) -> Any:
 EVENT = "rover.session.v1"
 SCHEMA_VERSION = 1
 MAX_BYTES = 1024  # межа розміру з контракту (docs/contracts/events.md, «Доставка»)
+_MAC = re.compile(r"[0-9a-f]{12}")  # контракт: 12 hex, нижній регістр
+
+# Межі типів колонок `sessions` (data-model.md): `integer` — int32, `double precision` — скінченний
+# float. Це не бізнес-діапазони (перевірок діапазонів значень немає, AC-05), а відсів того, що
+# сховище фізично не прийме: інакше воно б падало без ack і зациклювалось (review F1).
+_INT_MIN, _INT_MAX = -(2**31), 2**31 - 1
+_NUM_ABS_MAX = 1e300
 
 # Типи відомих полів (контракт); `null` і відсутність дозволені для всіх.
 _INT, _NUM, _STR, _BOOL = "int", "number", "string", "bool"
@@ -116,11 +125,21 @@ def _is_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
+def _is_int32(value: Any) -> bool:
+    return _is_int(value) and bool(_INT_MIN <= value <= _INT_MAX)
+
+
+def _is_number(value: Any) -> bool:
+    if _is_int(value):
+        return bool(abs(value) <= _NUM_ABS_MAX)
+    return isinstance(value, float) and math.isfinite(value) and abs(value) <= _NUM_ABS_MAX
+
+
 def _has_type(value: Any, kind: str) -> bool:
     if kind == _INT:
-        return _is_int(value)
+        return _is_int32(value)
     if kind == _NUM:
-        return _is_int(value) or isinstance(value, float)
+        return _is_number(value)
     if kind == _STR:
         return isinstance(value, str)
     return isinstance(value, bool)
@@ -139,6 +158,36 @@ def _bad_field_type(doc: dict[str, Any]) -> str | None:
     return None
 
 
+def _reject_constant(name: str) -> Any:
+    raise ValueError(f"недопустима константа JSON: {name}")  # NaN, Infinity, -Infinity
+
+
+def _storable_text(doc: Any) -> bool:
+    """`False`, якщо в документі є те, чого jsonb/text не приймають: NUL, одиночний сурогат, ±inf.
+
+    Ітеративно, без рекурсії: глибока вкладеність не має вичерпати стек.
+    """
+    stack = [doc]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, float):
+            if not math.isfinite(node):  # `1e999` json.loads читає як inf, а jsonb його не запише
+                return False
+        elif isinstance(node, str):
+            if "\x00" in node:
+                return False
+            try:
+                node.encode("utf-8")
+            except UnicodeEncodeError:
+                return False
+        elif isinstance(node, dict):
+            stack.extend(node.keys())
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            stack.extend(node)
+    return True
+
+
 def _reject(topic: str, payload: bytes, received_at: datetime, code: str, text: str) -> Rejection:
     return Rejection(
         topic=topic,
@@ -149,6 +198,11 @@ def _reject(topic: str, payload: bytes, received_at: datetime, code: str, text: 
         raw_truncated=code == "too_large",
         received_at=received_at,
     )
+
+
+def reject_unstorable(topic: str, payload: bytes, received_at: datetime) -> Rejection:
+    """Запобіжник обробника: сховище не прийняло значення, яке розбір пропустив (review F1)."""
+    return _reject(topic, payload, received_at, "bad_type", "сховище не прийняло значення звіту")
 
 
 def _topic_mac(topic: str) -> str | None:
@@ -167,11 +221,13 @@ def parse_report(topic: str, payload: bytes, received_at: datetime) -> ParsedSes
     if len(payload) > MAX_BYTES:
         return reject("too_large", f"повідомлення більше {MAX_BYTES} байт")
     try:
-        doc = json.loads(payload.decode("utf-8"))
-    except ValueError:  # UnicodeDecodeError і JSONDecodeError — нащадки ValueError
+        doc = json.loads(payload.decode("utf-8"), parse_constant=_reject_constant)
+    except (ValueError, RecursionError):  # Unicode/JSONDecodeError — нащадки ValueError
         return reject("not_json", "повідомлення не є коректним JSON у UTF-8")
     if not isinstance(doc, dict):
         return reject("not_json", "JSON не є об'єктом")
+    if not _storable_text(doc):
+        return reject("not_json", "повідомлення містить символ, який не можна зберегти")
     if doc.get("event") != EVENT:
         return reject("unknown_event", f"невідомий тип події, очікується {EVENT}")
     version = doc.get("schema_version")
@@ -180,10 +236,12 @@ def parse_report(topic: str, payload: bytes, received_at: datetime) -> ParsedSes
     mac, seq = doc.get("mac"), doc.get("seq")
     if mac is None or seq is None:
         return reject("missing_id", "немає ідентифікатора ровера або номера сесії")
-    if not isinstance(mac, str) or not _is_int(seq):
+    if not isinstance(mac, str) or not _is_int32(seq):
         return reject("bad_type", "ідентифікатор ровера або номер сесії має неправильний тип")
     if mac != _topic_mac(topic):
         return reject("id_mismatch", "ідентифікатори не збігаються")
+    if not _MAC.fullmatch(mac):
+        return reject("bad_type", "ідентифікатор ровера має бути 12 hex-символів нижнім регістром")
     bad = _bad_field_type(doc)
     if bad is not None:
         return reject("bad_type", f"поле {bad} має неправильний тип")
