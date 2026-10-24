@@ -100,6 +100,10 @@ def side_label(raw: str | None) -> str:
     return _SIDE_LABELS.get(raw or "", "")
 
 
+def known_sensor(raw: str | None) -> bool:
+    return (raw or "") in _SENSOR_LABELS
+
+
 def sensor_label(raw: str | None) -> str:
     """Відомі датчики — зі словника; будь-яке інше значення звіту не потрапляє в підпис."""
     return _SENSOR_LABELS.get(raw or "", _OTHER_SENSOR)

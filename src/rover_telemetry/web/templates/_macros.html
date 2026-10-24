@@ -82,3 +82,22 @@
 {% endif %}{% endmacro %}
 
 {% macro chart_warning(text) %}<p class="chart-warning">{{ text }}</p>{% endmacro %}
+
+{# Схема ровера з чотирма датчиками (SVG працює без скрипта): число біля датчика або «немає даних»
+   (не нуль, конституція №4). `sensors` — список {key, label, count}. #}
+{% macro sensor_diagram(sensors) %}
+{% set pos = {'front': (160, 22), 'left_front': (52, 92), 'right_front': (268, 92), 'rear': (160, 188)} %}
+<svg class="sensor-diagram__svg" viewBox="0 0 320 210" role="img" aria-label="Схема датчиків відстані ровера">
+  <rect class="sensor-diagram__rover" x="100" y="58" width="120" height="90" rx="10"/>
+  <text class="sensor-diagram__rover-label" x="160" y="108" text-anchor="middle">РОВЕР</text>
+  {% for sensor in sensors %}
+  {% set x, y = pos[sensor.key] %}
+  <text class="sensor-diagram__label" x="{{ x }}" y="{{ y }}" text-anchor="middle">{{ sensor.label }}</text>
+  {% if sensor.count is none %}
+  <text class="sensor-diagram__count no-data" x="{{ x }}" y="{{ y + 20 }}" text-anchor="middle">немає даних</text>
+  {% else %}
+  <text class="sensor-diagram__count" x="{{ x }}" y="{{ y + 22 }}" text-anchor="middle">{{ sensor.count }}</text>
+  {% endif %}
+  {% endfor %}
+</svg>
+{% endmacro %}

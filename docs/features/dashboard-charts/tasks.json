@@ -238,7 +238,7 @@
         "tests/unit/test_templates_charts_obstacles.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t11-ui-obstacles-block.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T12",

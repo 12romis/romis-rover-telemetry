@@ -21,14 +21,22 @@ from rover_telemetry.domain import charts
 from rover_telemetry.domain.charts import (
     Absent,
     BatteryPoint,
+    ObstaclePoint,
     Point,
     Slot,
     Value,
     build_axis,
     build_battery,
+    build_obstacles,
 )
-from rover_telemetry.domain.dashboard import EndReason
-from rover_telemetry.web.formatting import absent_reason_label, end_reason_label, format_received
+from rover_telemetry.domain.dashboard import EndReason, Total, build_summary
+from rover_telemetry.web.formatting import (
+    absent_reason_label,
+    end_reason_label,
+    format_received,
+    known_sensor,
+    sensor_label,
+)
 
 logger = logging.getLogger("rover_telemetry.web")
 
@@ -138,9 +146,112 @@ def build_battery_block(snapshot: Snapshot) -> BlockView:
     return BlockView("_charts_battery.html", {"notes": _battery_notes(points, axis)}, data)
 
 
+# --- Перешкоди (AC-05…AC-09, AC-14) ----------------------------------------------------------
+
+# Копія з маніфесту екранів (screens.md, «Копія „Перешкоди“»); поріг береться з константи.
+_OBSTACLES_DESCRIPTION = (
+    "Перешкоди. Ровер має чотири датчики відстані: лівий передній, передній, правий передній "
+    f"і задній. Коли перед ровером перешкода ближча за поріг — {charts.OBSTACLE_THRESHOLD_MM} "
+    "мм, — він зупиняється й чекає, доки шлях звільниться: це утримання. Схема показує, "
+    "скільки разів кожен датчик на вході в утримання бачив перешкоду ближче за поріг, за "
+    "всіма виїздами. Це лічильники датчиків, а не кількість утримань: в одному утриманні "
+    "перешкоду можуть бачити кілька датчиків. Графік нижче показує для кожного виїзду "
+    "найменшу відстань до перешкоди на вході в утримання й датчик, що її дав; виїзди стоять "
+    "за номером сесії. Коли захист від перешкод вимкнено (тумблер на пульті), утримань не "
+    "буває, тож їх відсутність тоді не означає, що перешкод не було; скільки секунд захист "
+    "був вимкнений — показано окремо."
+)
+_SENSOR_CAPTION = (
+    "Число біля датчика — у скількох утриманнях цей датчик на вході бачив перешкоду ближче за "
+    f"{charts.OBSTACLE_THRESHOLD_MM} мм. Це спрацювання датчиків, а не утримання: суму чисел "
+    "не можна читати як кількість утримань."
+)
+_PROTECTION_WARNING = (
+    "За вимкненого захисту від перешкод утримань не буває, тож їх відсутність у такому виїзді "
+    "не означає, що перешкод не було."
+)
+# Порядок на схемі: ключ лічильника, підпис датчика (словник підписів — у `formatting`).
+_SENSORS = ("left_front", "front", "right_front", "rear")
+
+
+def _obstacle_reasons(points: list[ObstaclePoint]) -> list[dict[str, Any]]:
+    reasons: list[dict[str, Any]] = []
+    for p in points:
+        for name, value in (("distance", p.min_mm), ("control_off", p.control_off_s)):
+            if isinstance(value, Absent):
+                reasons.append(
+                    {
+                        "seq": p.seq,
+                        "value": name,
+                        "code": value.reason.value,
+                        "label": absent_reason_label(value),
+                    }
+                )
+    return reasons
+
+
+def _obstacle_notes(points: list[ObstaclePoint], axis: list[Slot]) -> list[str]:
+    notes: list[str] = []
+    for p in points:
+        for value in (p.min_mm, p.control_off_s):
+            if not isinstance(value, Absent):
+                continue
+            if value.reason is charts.AbsentReason.NO_HOLDS:
+                notes.append(f"Утримань не було — виїзд № {p.seq}.")
+            else:
+                notes.append(f"Немає даних — виїзд № {p.seq}: {value.subject} (ровер не передав).")
+    return [*notes, *_gap_line(axis)]
+
+
+def _holds_total(total: Total) -> tuple[int | None, str | None]:
+    """«Утримань усього» — сума `holds_count`, а не сума лічильників датчиків (AC-06)."""
+    note = None
+    if total.sum is not None and total.missing > 0:
+        note = f"без даних у {total.missing} з {total.total} виїздів"
+    return total.sum, note
+
+
+def build_obstacles_block(snapshot: Snapshot) -> BlockView:
+    axis = build_axis(snapshot.sessions, snapshot.gaps)
+    block = build_obstacles(axis)
+    points = [p for p in block.points if not p.is_gap]
+    counters = block.counters
+    holds_total, holds_note = _holds_total(build_summary(snapshot.sessions, snapshot.gaps).holds)
+    data = {
+        **block_data_shell("obstacles", axis),
+        "distance_mm": [_number(p.min_mm) for p in block.points],
+        "no_holds": [
+            isinstance(p.min_mm, Absent) and p.min_mm.reason is charts.AbsentReason.NO_HOLDS
+            for p in block.points
+        ],
+        "sensor": [sensor_label(p.sensor) if p.sensor is not None else None for p in block.points],
+        # Невідомий датчик іде сирим текстом окремо від підпису (скрипт вставить як textContent).
+        "sensor_raw": [
+            p.sensor if p.sensor is not None and not known_sensor(p.sensor) else None
+            for p in block.points
+        ],
+        "control_off_s": [_number(p.control_off_s) for p in block.points],
+        "reasons": _obstacle_reasons(points),
+    }
+    context = {
+        "sensors": [
+            {"key": key, "label": sensor_label(key), "count": getattr(counters, key).sum}
+            for key in _SENSORS
+        ],
+        "sensor_caption": _SENSOR_CAPTION,
+        "holds_total": holds_total,
+        "holds_note": holds_note,
+        "protection_off": block.protection_off_any,
+        "protection_warning": _PROTECTION_WARNING,
+        "notes": _obstacle_notes(points, axis),
+    }
+    return BlockView("_charts_obstacles.html", context, data)
+
+
 # Порядок реєстру — порядок на сторінці: Акумулятор → Перешкоди → Рух і борти.
 BLOCKS: list[BlockSpec] = [
     BlockSpec("battery", "Акумулятор", _BATTERY_DESCRIPTION, build_battery_block),
+    BlockSpec("obstacles", "Перешкоди", _OBSTACLES_DESCRIPTION, build_obstacles_block),
 ]
 
 

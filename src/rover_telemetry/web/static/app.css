@@ -141,8 +141,19 @@ body {
 .chart-notes li { margin-bottom: var(--space-1); }
 .chart-warning { margin: var(--space-3) 0 0; color: var(--color-muted); font-size: 0.875rem; }
 
+/* Схема датчиків: вбудований SVG, працює без скрипта; від 640 px стоїть поруч із карткою. */
+.sensor-layout { display: grid; gap: var(--space-3); grid-template-columns: minmax(0, 1fr); }
+.sensor-diagram { margin: 0; min-width: 0; }
+.sensor-diagram__svg { width: 100%; max-width: 420px; height: auto; display: block; margin: 0 auto; }
+.sensor-diagram__rover { fill: var(--color-surface); stroke: var(--chart-reference); stroke-width: 2; }
+.sensor-diagram__rover-label { fill: var(--color-muted); font-size: 14px; font-weight: 600; }
+.sensor-diagram__label { fill: var(--color-muted); font-size: 13px; }
+.sensor-diagram__count { fill: var(--color-text); font-size: 20px; font-weight: 600; }
+.sensor-diagram__count.no-data { fill: var(--color-no-data); font-size: 12px; font-weight: 400; }
+
 @media (min-width: 640px) {
   .page { max-width: 960px; }
+  .sensor-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 14rem); align-items: start; }
   .cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .fields { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .card--wide { grid-column: auto; }
