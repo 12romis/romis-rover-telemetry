@@ -310,7 +310,7 @@
         "tests/e2e/test_charts_obstacles.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t14-ui-charts-js-obstacles.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T15",

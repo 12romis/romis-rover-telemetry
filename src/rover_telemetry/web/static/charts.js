@@ -440,10 +440,195 @@
     mount(section, 'battery-drop', batteryDropOption(data));
   }
 
+  // ---------- Блок «Перешкоди» ----------
+
+  // Штрихування кольору «немає даних»: відрізняється від рамки «утримань не було».
+  function hatch() {
+    var canvas = document.createElement('canvas');
+    canvas.width = 8;
+    canvas.height = 8;
+    var ctx = canvas.getContext('2d');
+    ctx.strokeStyle = token('--color-no-data');
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, 8);
+    ctx.lineTo(8, 0);
+    ctx.stroke();
+    return { image: canvas, repeat: 'repeat' };
+  }
+
+  // Слоти без стовпця: «утримань не було» — тонка суцільна рамка без заливки,
+  // «немає даних» — штрихована заливка з причиною вздовж слота. rows: [{i, kind, text}].
+  function slotStates(rows) {
+    return {
+      type: 'custom',
+      name: 'Стан слота',
+      silent: true,
+      data: rows.map(function (r) {
+        return [r.i, r.kind];
+      }),
+      encode: { x: 0 },
+      renderItem: function (params, api) {
+        var row = rows[params.dataIndex];
+        var area = params.coordSys;
+        var width = api.size([1, 0])[0];
+        var center = api.coord([api.value(0), 0])[0];
+        var frame = row.kind === 'no_holds';
+        var height = frame ? area.height * 0.7 : area.height;
+        var top = area.y + area.height - height;
+        var rect = {
+          type: 'rect',
+          shape: { x: center - width * 0.4, y: top, width: width * 0.8, height: height },
+          style: frame
+            ? { fill: 'none', stroke: token('--chart-reference'), lineWidth: 1 }
+            : { fill: hatch(), stroke: token('--color-no-data'), lineWidth: 1 },
+        };
+        var text = {
+          type: 'text',
+          x: center,
+          y: top + height / 2,
+          rotation: Math.PI / 2,
+          style: {
+            text: row.text,
+            x: 0,
+            y: 0,
+            align: 'center',
+            verticalAlign: 'middle',
+            fontSize: 11,
+            fill: frame ? token('--chart-reference') : token('--color-no-data'),
+            fontStyle: frame ? 'normal' : 'italic',
+          },
+        };
+        return { type: 'group', children: [rect, text] };
+      },
+    };
+  }
+
+  function obstaclesTooltip(data) {
+    return tooltipOption(data, function (i) {
+      var seq = data.slots[i].seq;
+      var distance = data.distance_mm[i];
+      var distanceText = null;
+      if (distance !== null) {
+        distanceText = distance + ' мм';
+      } else if (data.no_holds[i]) {
+        distanceText = 'утримань не було';
+      }
+      var sensorText = null;
+      if (data.sensor[i] !== null) {
+        // Невідомий датчик: сире значення лише як текст підказки (textContent у `row`).
+        sensorText = data.sensor_raw[i] !== null ? data.sensor[i] + ' (' + data.sensor_raw[i] + ')' : data.sensor[i];
+      }
+      var off = data.control_off_s[i];
+      var rows = [row('Найменша відстань', distanceText, reasonFor(data, seq, 'distance'))];
+      if (sensorText !== null) {
+        rows.push(row('Датчик', sensorText, ''));
+      }
+      rows.push(row('Захист вимкнено', off === null ? null : comma(off, off === 0 ? 0 : 1) + ' с', reasonFor(data, seq, 'control_off')));
+      return rows;
+    });
+  }
+
+  function obstaclesDistanceOption(data) {
+    var threshold = data.constants.obstacle_threshold_mm;
+    var rows = [];
+    var top = threshold;
+    var bars = data.distance_mm.map(function (value, i) {
+      if (data.slots[i].gap) {
+        return null;
+      }
+      if (value !== null) {
+        top = Math.max(top, value);
+        return {
+          value: value,
+          label: { show: true, position: 'top', formatter: data.sensor[i], color: token('--color-text'), fontSize: 11 },
+        };
+      }
+      if (data.no_holds[i]) {
+        rows.push({ i: i, kind: 'no_holds', text: 'утримань не було' });
+      } else {
+        rows.push({ i: i, kind: 'no_data', text: NO_DATA });
+      }
+      return null;
+    });
+    return {
+      animation: false,
+      grid: { left: 8, right: 14, top: 36, bottom: 56, containLabel: true },
+      xAxis: xAxis(data),
+      yAxis: {
+        type: 'value',
+        name: 'мм',
+        min: 0,
+        max: Math.ceil(top * 1.25),
+        axisLabel: { color: token('--color-muted'), formatter: axisNumber },
+      },
+      tooltip: obstaclesTooltip(data),
+      series: [
+        {
+          type: 'bar',
+          name: 'Найменша відстань',
+          data: bars,
+          barMaxWidth: 28,
+          itemStyle: { color: token('--chart-distance') },
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            data: [
+              {
+                yAxis: threshold,
+                label: { formatter: 'Поріг ' + threshold + ' мм', position: 'insideEndTop', color: token('--chart-reference') },
+                lineStyle: { type: 'dashed', color: token('--chart-reference') },
+              },
+            ],
+          },
+        },
+        slotStates(rows),
+        gapSeries(data),
+        hitSeries(data),
+      ],
+    };
+  }
+
+  function obstaclesControlOffOption(data) {
+    var rows = [];
+    var bars = data.control_off_s.map(function (value, i) {
+      if (data.slots[i].gap) {
+        return null;
+      }
+      if (value === null) {
+        rows.push({ i: i, kind: 'no_data', text: NO_DATA });
+        return null;
+      }
+      return {
+        value: value,
+        label: { show: true, position: 'top', formatter: comma(value, value === 0 ? 0 : 1) + ' с', color: token('--color-text'), fontSize: 11 },
+      };
+    });
+    return {
+      animation: false,
+      grid: { left: 8, right: 14, top: 36, bottom: 56, containLabel: true },
+      xAxis: xAxis(data),
+      yAxis: { type: 'value', name: 'с', min: 0, axisLabel: { color: token('--color-muted'), formatter: axisNumber } },
+      tooltip: obstaclesTooltip(data),
+      series: [
+        { type: 'bar', name: 'Захист вимкнено', data: bars, barMaxWidth: 28, itemStyle: { color: token('--chart-control-off') } },
+        slotStates(rows),
+        gapSeries(data),
+        hitSeries(data),
+      ],
+    };
+  }
+
+  function renderObstacles(section, data) {
+    mount(section, 'obstacles-distance', obstaclesDistanceOption(data));
+    mount(section, 'obstacles-control-off', obstaclesControlOffOption(data));
+  }
+
   // ---------- Запуск: кожен блок ізольовано ----------
 
   var RENDERERS = {
     battery: renderBattery,
+    obstacles: renderObstacles,
   };
 
   function unavailable(section) {

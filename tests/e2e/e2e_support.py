@@ -22,6 +22,7 @@ class Watch:
 
 def watch_page(page: Any) -> Watch:
     watch = Watch()
+    page.set_default_timeout(10_000)  # провал має бути швидким, а не 30-секундним
     page.expose_function("report_violation", lambda detail: watch.violations.append(str(detail)))
     page.add_init_script(
         "document.addEventListener('securitypolicyviolation', e =>"
