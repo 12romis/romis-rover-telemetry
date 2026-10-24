@@ -226,3 +226,18 @@ def test_gap_slot_has_no_tooltip(
     page.wait_for_timeout(400)
 
     expect(page.get_by_text("Виїзд № 40")).to_have_count(0)
+
+
+def test_slot_state_text_names_the_reason_along_the_slot(
+    browser: Any, base_url: str, serve_snapshot: Callable[[Snapshot], None]
+) -> None:
+    """Review F3, AC-12: «немає даних — ровер не їхав» / «— прямої ділянки не було»."""
+    serve_snapshot(snapshot())
+    page, _ = open_page(browser, base_url, viewport=PHONE)
+
+    speed = next(s for s in series_of(page, "motion-speed") if s.get("name") == "Стан слота")
+    imb = next(s for s in series_of(page, "motion-imbalance") if s.get("name") == "Стан слота")
+    assert {row[0]: row[2] for row in speed["data"]}[1] == "немає даних — ровер не їхав"
+    texts = {row[0]: row[2] for row in imb["data"]}
+    assert texts[1] == "немає даних — ровер не їхав"
+    assert texts[2] == "немає даних — прямої ділянки не було"

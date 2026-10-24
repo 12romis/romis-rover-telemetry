@@ -480,7 +480,7 @@
         "tests/e2e/test_browser_page.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t22-fix-charts-js-axis-slots-tooltip.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T23",

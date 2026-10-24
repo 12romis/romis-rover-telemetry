@@ -206,6 +206,32 @@ def test_browser_side_failure_of_one_block_leaves_the_rest_alive(
     expect(page.locator("details.session")).to_have_count(2)
 
 
+def test_partial_failure_of_a_block_disposes_its_already_mounted_chart(
+    browser: Any, base_url: str, serve_snapshot: Callable[[Snapshot], None]
+) -> None:
+    """Review F13, AC-19: перший графік блока вдався, другий упав — екземпляр не лишається."""
+    serve_snapshot(real_snapshot())
+    page = browser.new_context(viewport=PHONE).new_page()
+    watch_page(page)
+
+    def drop_second_chart(route: Any) -> None:
+        response = route.fetch()
+        body = response.text().replace('data-chart="battery-drop"', 'data-chart="battery-gone"', 1)
+        route.fulfill(response=response, body=body)
+
+    page.route(f"{base_url}/", drop_second_chart)
+    page.goto(f"{base_url}/")
+    section = page.locator('[data-chart-block="battery"]')
+    section.get_by_text(UNAVAILABLE).first.wait_for()
+
+    alive = page.evaluate(
+        """() => !!echarts.getInstanceByDom(
+          document.querySelector('[data-chart="battery-voltage"]'))"""
+    )
+    assert alive is False
+    assert section.locator("canvas").count() == 0
+
+
 def test_two_blocks_failing_at_once_leave_the_third(
     browser: Any,
     base_url: str,

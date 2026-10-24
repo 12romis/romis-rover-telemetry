@@ -14,7 +14,7 @@
   var NO_DATA = 'немає даних';
   var GAP_LABEL = 'не дійшла';
   var AXIS_NAME = 'Номер сесії';
-  var AXIS_PADDING = 0.4; // запас осі напруги над і під опорними лініями, В
+  var AXIS_PADDING = 0.4; // презентаційний запас осі напруги за крайніми значеннями, В (не доменна константа)
   var MARKER_RADIUS = 4.5;
   var MARKER_SHIFT = 10; // зсув маркерів початку й кінця від центра слота, px
 
@@ -106,6 +106,12 @@
         return tooltipFor(data, index, rowsFor(index));
       },
     };
+  }
+
+  // Підпис слота «немає даних» разом із причиною вздовж слота (screens.md «Правила показу»).
+  function noDataText(data, seq, value) {
+    var reason = reasonFor(data, seq, value);
+    return reason ? NO_DATA + ' — ' + reason : NO_DATA;
   }
 
   // ---------- Спільна вісь ----------
@@ -214,7 +220,7 @@
     element.textContent = '';
     var chart = echarts.init(element, null, { renderer: 'canvas' });
     chart.setOption(option);
-    charts.push({ chart: chart, element: element });
+    charts.push({ chart: chart, element: element, section: section });
   }
 
   // ---------- Блок «Акумулятор» ----------
@@ -246,6 +252,18 @@
         style: style,
       };
     };
+  }
+
+  // Слот виїзду без жодної з трьох напруг: штрихування «немає даних» з причиною.
+  function batteryStates(data) {
+    var rows = [];
+    data.slots.forEach(function (slot, i) {
+      var none = data.series.start[i] === null && data.series.min[i] === null && data.series.end[i] === null;
+      if (!slot.gap && none) {
+        rows.push({ i: i, kind: 'no_data', text: noDataText(data, slot.seq, 'start') });
+      }
+    });
+    return rows;
   }
 
   function batteryVoltageOption(data) {
@@ -281,6 +299,12 @@
         renderItem: marker(shape, colors[field], shift),
       };
     }
+    // Вісь охоплює відсічку, повний заряд і всі значення: маркер нижче 6,0 В лишається в полі.
+    var known = [].concat(series.start, series.min, series.end).filter(function (v) {
+      return v !== null;
+    });
+    var axisMin = Math.min.apply(null, known.concat([c.cutoff_v])) - AXIS_PADDING;
+    var axisMax = Math.max.apply(null, known.concat([c.full_charge_v])) + AXIS_PADDING;
     var line = function (value, text) {
       return {
         yAxis: value,
@@ -309,9 +333,8 @@
       yAxis: {
         type: 'value',
         name: 'В',
-        min: c.cutoff_v - AXIS_PADDING,
-        max: c.full_charge_v + AXIS_PADDING,
-        scale: true,
+        min: axisMin,
+        max: axisMax,
         axisLabel: { color: token('--color-muted'), formatter: axisNumber },
       },
       tooltip: tooltipOption(data, function (i) {
@@ -386,6 +409,7 @@
             };
           },
         },
+        slotStates(batteryStates(data)),
         hitSeries(data),
       ],
     };
@@ -429,6 +453,7 @@
           barMaxWidth: 28,
           itemStyle: { color: token('--chart-drop') },
         },
+        slotStates(batteryStates(data)),
         gapSeries(data),
         hitSeries(data),
       ],
@@ -465,7 +490,7 @@
       name: 'Стан слота',
       silent: true,
       data: rows.map(function (r) {
-        return [r.i, r.kind];
+        return [r.i, r.kind, r.text];
       }),
       encode: { x: 0 },
       renderItem: function (params, api) {
@@ -519,12 +544,16 @@
         // Невідомий датчик: сире значення лише як текст підказки (textContent у `row`).
         sensorText = data.sensor_raw[i] !== null ? data.sensor[i] + ' (' + data.sensor_raw[i] + ')' : data.sensor[i];
       }
-      var off = data.control_off_s[i];
-      var rows = [row('Найменша відстань', distanceText, reasonFor(data, seq, 'distance'))];
+      var holds = data.holds_count[i];
+      var rows = [
+        row('Утримань', holds === null ? null : String(holds), ''),
+        row('Найменша відстань', distanceText, reasonFor(data, seq, 'distance')),
+      ];
       if (sensorText !== null) {
         rows.push(row('Датчик', sensorText, ''));
       }
-      rows.push(row('Захист вимкнено', off === null ? null : comma(off, off === 0 ? 0 : 1) + ' с', reasonFor(data, seq, 'control_off')));
+      rows.push(row('Захист вимкнено', data.control_off_text[i], reasonFor(data, seq, 'control_off')));
+      rows.push(row('Тривалість виїзду', data.duration_text[i], ''));
       return rows;
     });
   }
@@ -547,7 +576,7 @@
       if (data.no_holds[i]) {
         rows.push({ i: i, kind: 'no_holds', text: 'утримань не було' });
       } else {
-        rows.push({ i: i, kind: 'no_data', text: NO_DATA });
+        rows.push({ i: i, kind: 'no_data', text: noDataText(data, data.slots[i].seq, 'distance') });
       }
       return null;
     });
@@ -596,7 +625,7 @@
         return null;
       }
       if (value === null) {
-        rows.push({ i: i, kind: 'no_data', text: NO_DATA });
+        rows.push({ i: i, kind: 'no_data', text: noDataText(data, data.slots[i].seq, 'control_off') });
         return null;
       }
       return {
@@ -728,7 +757,7 @@
       var l = data.left[i];
       var r = data.right[i];
       if ([l.avg_mps, l.peak_mps, r.avg_mps, r.peak_mps].every(function (v) { return v === null; })) {
-        states.push({ i: i, kind: 'no_data', text: NO_DATA });
+        states.push({ i: i, kind: 'no_data', text: noDataText(data, slot.seq, 'left_avg') });
       }
     });
     var leftColor = token('--chart-left');
@@ -784,7 +813,7 @@
         return null;
       }
       if (imb.pct === null) {
-        states.push({ i: i, kind: 'no_data', text: NO_DATA });
+        states.push({ i: i, kind: 'no_data', text: noDataText(data, data.slots[i].seq, 'imbalance') });
         return null;
       }
       return {
@@ -833,6 +862,14 @@
   };
 
   function unavailable(section) {
+    // Частково змонтований блок: живі екземпляри ECharts цієї секції знімаємо до повідомлення.
+    charts = charts.filter(function (c) {
+      if (c.section !== section) {
+        return true;
+      }
+      c.chart.dispose();
+      return false;
+    });
     var elements = section.querySelectorAll('.chart');
     for (var i = 0; i < elements.length; i++) {
       elements[i].hidden = false;

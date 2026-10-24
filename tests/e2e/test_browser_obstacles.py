@@ -39,6 +39,7 @@ def snapshot() -> Snapshot:
             holds_left_front=1,
             holds_front=2,
             tof_control_off_ms=6660,
+            duration_ms=657000,
         ),
         session(38, holds_count=0, tof_control_off_ms=1500),
         session(39, holds_count=2, tof_control_off_ms=0),
@@ -222,3 +223,50 @@ def test_markup_in_report_sensor_is_text_only_never_executed(
     assert page.evaluate("window.__pwned === undefined")
     assert page.locator("body img").count() == 0
     watch.assert_clean(base_url)
+
+
+def test_slot_state_text_names_the_reason_along_the_slot(
+    browser: Any, base_url: str, serve_snapshot: Callable[[Snapshot], None]
+) -> None:
+    """Review F3, AC-12/AC-08: штрихування підписане причиною, а «утримань не було» лишається."""
+    serve_snapshot(snapshot())
+    page, _ = open_page(browser, base_url, viewport=PHONE)
+
+    states = next(s for s in series_of(page, "obstacles-distance") if s.get("name") == "Стан слота")
+    texts = {row[0]: row[2] for row in states["data"]}
+    assert texts == {
+        2: "утримань не було",
+        3: "немає даних — ровер не передав: відстань до перешкоди",
+    }
+
+
+def test_tooltip_has_holds_duration_and_protection_as_duration_text(
+    browser: Any, base_url: str, serve_snapshot: Callable[[Snapshot], None]
+) -> None:
+    """Review F4, SCR-05: «Утримань: N» (нуль виміряний), тривалість виїзду, захист «7 хв 56 с»."""
+    sessions = [
+        session(
+            1,
+            holds_count=1,
+            holds_min_mm=80,
+            holds_min_sensor="front",
+            tof_control_off_ms=475800,
+            duration_ms=657000,
+        ),
+        session(2, holds_count=0, tof_control_off_ms=1500, duration_ms=8300),
+    ]
+    serve_snapshot(Snapshot(sessions, []))
+    page, _ = open_page(browser, base_url, viewport=PHONE, has_touch=True)
+
+    tap_slot(page, "obstacles-distance", "1")
+    page.get_by_text("Виїзд № 1").first.wait_for()
+    first = page.locator(".chart-tip").first.inner_text()
+    assert "Утримань — 1" in first
+    assert "Захист вимкнено — 7 хв 56 с" in first
+    assert "Тривалість виїзду — 10 хв 57 с" in first
+
+    tap_slot(page, "obstacles-distance", "2")
+    page.get_by_text("Виїзд № 2").first.wait_for()
+    second = page.locator(".chart-tip").first.inner_text()
+    assert "Утримань — 0" in second and "Найменша відстань — утримань не було" in second
+    assert "Тривалість виїзду — 8,3 с" in second

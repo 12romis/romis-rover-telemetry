@@ -278,3 +278,56 @@ def test_missing_echarts_script_shows_message_not_blank(
 
     page.get_by_text(UNAVAILABLE).first.wait_for()
     assert page.locator("canvas").count() == 0
+
+
+def test_voltage_axis_keeps_a_marker_below_the_cutoff_inside_the_field(
+    browser: Any, base_url: str, serve_snapshot: Callable[[Snapshot], None]
+) -> None:
+    """Review F2, AC-04: відсічка спрацьовує нижче 6,0 В — вісь розширюється під мінімум даних."""
+    serve_snapshot(
+        Snapshot(
+            [
+                session(
+                    1,
+                    voltage_start_mv=7500,
+                    voltage_min_mv=5000,
+                    voltage_end_mv=5200,
+                    end_reason="failsafe_voltage",
+                )
+            ],
+            [],
+        )
+    )
+    page, _ = open_page(browser, base_url, viewport=PHONE)
+
+    axis = option_of(page, "battery-voltage")["yAxis"][0]
+    assert axis["min"] < 5.0 and axis["max"] > 8.4
+    inside = page.evaluate(
+        """() => {
+          const el = document.querySelector('[data-chart="battery-voltage"]');
+          const y = echarts.getInstanceByDom(el).convertToPixel({yAxisIndex: 0}, 5.0);
+          return y > 0 && y < el.clientHeight;
+        }"""
+    )
+    assert inside
+
+
+def test_slot_without_any_voltage_is_hatched_with_a_reason_on_both_charts(
+    browser: Any, base_url: str, serve_snapshot: Callable[[Snapshot], None]
+) -> None:
+    """Review F3, AC-03: слот «немає даних» з причиною, а не порожнє місце."""
+    serve_snapshot(
+        Snapshot(
+            [
+                session(1, voltage_start_mv=7500, voltage_min_mv=7300, voltage_end_mv=7400),
+                session(2),
+            ],
+            [],
+        )
+    )
+    page, _ = open_page(browser, base_url, viewport=PHONE)
+
+    for name in ("battery-voltage", "battery-drop"):
+        states = next(s for s in option_of(page, name)["series"] if s.get("name") == "Стан слота")
+        assert [row[:2] for row in states["data"]] == [[1, "no_data"]], name
+        assert states["data"][0][2].startswith("немає даних — ровер не передав"), name
