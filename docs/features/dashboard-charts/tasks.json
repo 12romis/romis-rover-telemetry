@@ -262,7 +262,7 @@
         "tests/unit/test_templates_charts_motion.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t12-ui-motion-block.md",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T13",

@@ -1,0 +1,6 @@
+{% from '_macros.html' import chart, chart_notes, chart_warning %}
+{{ chart('motion-speed', 'Швидкість бортів, м/с') }}
+{{ chart('motion-imbalance', 'Різниця бортів, %') }}
+{% if ctx.has_imbalance %}{{ chart_warning(ctx.diagnostic_caption) }}{% endif %}
+{{ chart_notes(ctx.notes) }}
+{% if ctx.any_no_encoder %}{{ chart_warning(ctx.mileage_caption) }}{% endif %}

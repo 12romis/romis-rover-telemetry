@@ -21,12 +21,16 @@ from rover_telemetry.domain import charts
 from rover_telemetry.domain.charts import (
     Absent,
     BatteryPoint,
+    MotionPoint,
     ObstaclePoint,
     Point,
     Slot,
+    SpeedPoint,
+    SpeedValue,
     Value,
     build_axis,
     build_battery,
+    build_motion,
     build_obstacles,
 )
 from rover_telemetry.domain.dashboard import EndReason, Total, build_summary
@@ -36,6 +40,7 @@ from rover_telemetry.web.formatting import (
     format_received,
     known_sensor,
     sensor_label,
+    side_label,
 )
 
 logger = logging.getLogger("rover_telemetry.web")
@@ -248,10 +253,152 @@ def build_obstacles_block(snapshot: Snapshot) -> BlockView:
     return BlockView("_charts_obstacles.html", context, data)
 
 
+# --- Рух і борти (AC-10…AC-14) ---------------------------------------------------------------
+
+# Копія з маніфесту екранів (screens.md, «Копія „Рух і борти“»); тест звіряє дослівно.
+_MOTION_DESCRIPTION = (
+    "Рух і борти. Борт — ліва або права сторона ровера, швидкість кожного борту вимірюється "
+    "окремо. Графік показує для кожного виїзду середню швидкість борту за час руху "
+    "(стовпець) і найбільшу (трикутник); виїзди стоять за номером сесії. Різниця бортів — на "
+    "скільки відсотків один борт їхав швидше за інший на прямих ділянках: плюс — лівий "
+    "швидший, мінус — правий. Це діагностична метрика за прямими ділянками, а не висновок "
+    "про несправність, тому вона може не збігатися з різницею середніх швидкостей. Якщо "
+    "швидкості немає, блок каже чому: ровер не їхав, на борту не було енкодера (датчика "
+    "обертів колеса) або прямої ділянки не було."
+)
+_DIAGNOSTIC_CAPTION = (
+    "Різниця бортів — діагностична метрика за прямими ділянками, а не висновок про несправність."
+)
+_MILEAGE_CAPTION = (
+    "Без енкодера: пробіг такого виїзду рахувався за одним бортом, а якщо енкодера не було на "
+    "обох бортах — пробігу немає."
+)
+_FASTER_LABELS = {
+    "left": "лівий борт швидший",
+    "right": "правий борт швидший",
+    "equal": "борти їхали однаково",
+}
+
+
+def _speed_numbers(avg: SpeedPoint | None, peak: SpeedPoint | None) -> dict[str, float | None]:
+    """Швидкості борту; відсутнє значення — `null`, нуль лишається числом."""
+
+    def pick(point: SpeedPoint | None, field: str) -> float | None:
+        return getattr(point, field) if isinstance(point, SpeedValue) else None
+
+    return {
+        "avg_rpm": pick(avg, "rpm"),
+        "peak_rpm": pick(peak, "rpm"),
+        "avg_mps": pick(avg, "mps"),
+        "peak_mps": pick(peak, "mps"),
+    }
+
+
+def _motion_reasons(points: list[MotionPoint]) -> list[dict[str, Any]]:
+    reasons: list[dict[str, Any]] = []
+    for p in points:
+        values = (
+            ("left_avg", p.left_avg),
+            ("left_peak", p.left_peak),
+            ("right_avg", p.right_avg),
+            ("right_peak", p.right_peak),
+            ("imbalance", p.imbalance_pct),
+        )
+        for name, value in values:
+            if isinstance(value, Absent):
+                reasons.append(
+                    {
+                        "seq": p.seq,
+                        "value": name,
+                        "code": value.reason.value,
+                        "label": absent_reason_label(value),
+                    }
+                )
+    return reasons
+
+
+def _first_absent(*points: Point | SpeedPoint | None) -> Absent | None:
+    return next((p for p in points if isinstance(p, Absent)), None)
+
+
+def _motion_missing_note(p: MotionPoint) -> str | None:
+    """Одна примітка на виїзд: що саме відсутнє і чому (причини не змішуються)."""
+    items = [
+        ("швидкість лівого борту", _first_absent(p.left_avg, p.left_peak)),
+        ("швидкість правого борту", _first_absent(p.right_avg, p.right_peak)),
+        ("різниця бортів", _first_absent(p.imbalance_pct)),
+    ]
+    missing = [(name, a) for name, a in items if a is not None]
+    if not missing:
+        return None
+    reasons = {a.reason for _, a in missing}
+    if reasons == {charts.AbsentReason.NOT_MOVING} and len(missing) == len(items):
+        reason = absent_reason_label(Absent(charts.AbsentReason.NOT_MOVING))
+        text = f"швидкості й різниця бортів ({reason})"
+    else:
+        text = "; ".join(f"{name} ({absent_reason_label(Absent(a.reason))})" for name, a in missing)
+    return f"Немає даних — виїзд № {p.seq}: {text}."
+
+
+def _motion_notes(points: list[MotionPoint], axis: list[Slot]) -> list[str]:
+    notes: list[str] = []
+    for p in points:
+        if p.no_encoder:
+            sides = side_label(",".join(side.value for side in p.no_encoder))
+            notes.append(f"Без енкодера — виїзд № {p.seq}: {sides}.")
+        missing = _motion_missing_note(p)
+        if missing:
+            notes.append(missing)
+    return [*notes, *_gap_line(axis)]
+
+
+def build_motion_block(snapshot: Snapshot) -> BlockView:
+    axis = build_axis(snapshot.sessions, snapshot.gaps)
+    block = build_motion(axis)
+    points = [p for p in block.points if not p.is_gap]
+
+    def imbalance(p: MotionPoint) -> dict[str, Any] | None:
+        if p.is_gap:
+            return None
+        faster = p.faster.value if isinstance(p.faster, charts.Side) else p.faster
+        return {
+            "pct": _number(p.imbalance_pct),
+            "faster": faster,
+            "faster_label": _FASTER_LABELS.get(faster) if faster else None,
+        }
+
+    def no_encoder(p: MotionPoint) -> str | None:
+        if not p.no_encoder:
+            return None
+        return f"без енкодера: {side_label(','.join(side.value for side in p.no_encoder))}"
+
+    data = {
+        **block_data_shell("motion", axis),
+        "left": [
+            None if p.is_gap else _speed_numbers(p.left_avg, p.left_peak) for p in block.points
+        ],
+        "right": [
+            None if p.is_gap else _speed_numbers(p.right_avg, p.right_peak) for p in block.points
+        ],
+        "imbalance": [imbalance(p) for p in block.points],
+        "no_encoder": [no_encoder(p) for p in block.points],
+        "reasons": _motion_reasons(points),
+    }
+    context = {
+        "notes": _motion_notes(points, axis),
+        "diagnostic_caption": _DIAGNOSTIC_CAPTION,
+        "has_imbalance": any(isinstance(p.imbalance_pct, Value) for p in points),
+        "mileage_caption": _MILEAGE_CAPTION,
+        "any_no_encoder": block.any_no_encoder,
+    }
+    return BlockView("_charts_motion.html", context, data)
+
+
 # Порядок реєстру — порядок на сторінці: Акумулятор → Перешкоди → Рух і борти.
 BLOCKS: list[BlockSpec] = [
     BlockSpec("battery", "Акумулятор", _BATTERY_DESCRIPTION, build_battery_block),
     BlockSpec("obstacles", "Перешкоди", _OBSTACLES_DESCRIPTION, build_obstacles_block),
+    BlockSpec("motion", "Рух і борти", _MOTION_DESCRIPTION, build_motion_block),
 ]
 
 
