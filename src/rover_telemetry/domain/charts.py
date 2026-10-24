@@ -282,7 +282,10 @@ def _imbalance(s: StoredSession, missing: tuple[Side, ...]) -> Point:
         return Absent(AbsentReason.NOT_MOVING)
     if missing:
         return Absent(AbsentReason.NO_ENCODER, ",".join(side.value for side in missing))
-    return Absent(AbsentReason.NO_STRAIGHT)
+    # «Прямої ділянки не було» — лише за відомих руху й енкодерів (ADR-0003).
+    if s.moving_ms is not None and s.encoders_left is True and s.encoders_right is True:
+        return Absent(AbsentReason.NO_STRAIGHT)
+    return Absent(AbsentReason.NOT_REPORTED, "різниця бортів")
 
 
 def _faster(imbalance: Point) -> Side | Literal["equal"] | None:

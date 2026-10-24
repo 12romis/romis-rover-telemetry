@@ -377,6 +377,141 @@
       ],
       "file": "docs/features/dashboard-charts/tasks/t17-tests-integration-page.md",
       "status": "blocked"
+    },
+    {
+      "id": "T18",
+      "title": "Review F8: у domain/charts.py `NO_STRAIGHT` лише коли moving_ms>0 і обидва encoders True, інакше `NOT_REPORTED` (ADR-0003)",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-12"
+      ],
+      "dod": "тести та gate (ruff, mypy, pytest) зелені; знахідку рев'ю закрито",
+      "files_hint": [
+        "src/rover_telemetry/domain/charts.py",
+        "tests/unit/test_charts_motion.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t18-fix-no-straight-reason.md",
+      "status": "done"
+    },
+    {
+      "id": "T19",
+      "title": "Review F7+F4: рендер вмісту блока й JSON під try у render_blocks; holds_count і тривалість виїзду в даних блока «Перешкоди» (формат format_duration_ms)",
+      "layer": "ports",
+      "deps": [
+        "T18"
+      ],
+      "acs": [
+        "AC-08",
+        "AC-09",
+        "AC-19"
+      ],
+      "dod": "тести та gate (ruff, mypy, pytest) зелені; знахідку рев'ю закрито",
+      "files_hint": [
+        "src/rover_telemetry/web/chart_blocks.py",
+        "src/rover_telemetry/web/templates/dashboard.html",
+        "tests/unit/test_chart_blocks.py",
+        "tests/unit/test_templates_charts_obstacles.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t19-fix-block-isolation-obstacle-data.md",
+      "status": "todo"
+    },
+    {
+      "id": "T20",
+      "title": "Review F10+F14: видалити мертві форматери з дубльованими константами; прибрати тавтологічний статичний тест JS, прихований імпорт і type: ignore/noqa без обґрунтування",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-01",
+        "AC-10"
+      ],
+      "dod": "тести та gate (ruff, mypy, pytest) зелені; знахідку рев'ю закрито",
+      "files_hint": [
+        "src/rover_telemetry/web/formatting.py",
+        "src/rover_telemetry/web/templating.py",
+        "tests/unit/test_formatting.py",
+        "tests/unit/test_charts_js_static.py",
+        "tests/unit/test_charts_battery.py",
+        "tests/unit/test_charts_motion.py",
+        "tests/unit/test_charts_obstacles.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t20-fix-cleanup-dead-code-tests.md",
+      "status": "todo"
+    },
+    {
+      "id": "T21",
+      "title": "Review F11: видимий стан loading — прибрати hidden із заповнювача .chart, та сама висота, тест на видимість",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-19"
+      ],
+      "dod": "тести та gate (ruff, mypy, pytest) зелені; знахідку рев'ю закрито",
+      "files_hint": [
+        "src/rover_telemetry/web/templates/_macros.html",
+        "src/rover_telemetry/web/static/app.css",
+        "tests/unit/test_templates_charts.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t21-fix-loading-state.md",
+      "status": "todo"
+    },
+    {
+      "id": "T22",
+      "title": "Review F2+F3+F4+F13: динамічні межі осі напруги; slotStates для акумулятора та причина вздовж слотів; підказка «Перешкоди» за SCR-05; dispose() при частковому збої блока",
+      "layer": "ui",
+      "deps": [
+        "T19",
+        "T21"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-04",
+        "AC-08",
+        "AC-09",
+        "AC-12",
+        "AC-19"
+      ],
+      "dod": "тести та gate (ruff, mypy, pytest) зелені; знахідку рев'ю закрито",
+      "files_hint": [
+        "src/rover_telemetry/web/static/charts.js",
+        "tests/e2e/test_browser_battery.py",
+        "tests/e2e/test_browser_obstacles.py",
+        "tests/e2e/test_browser_motion.py",
+        "tests/e2e/test_browser_page.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t22-fix-charts-js-axis-slots-tooltip.md",
+      "status": "todo"
+    },
+    {
+      "id": "T23",
+      "title": "Review F6: тест AC-22 перевіряє картку «Виїздів» == 2 (підсумки), а не рядки таблиці",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-22"
+      ],
+      "dod": "тести та gate (ruff, mypy, pytest) зелені; знахідку рев'ю закрито",
+      "files_hint": [
+        "tests/integration/test_charts_page.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t23-fix-ac22-totals-test.md",
+      "status": "todo"
+    },
+    {
+      "id": "T24",
+      "title": "Review F9+F5: примітка в SAD §6 про покриття решти AC ux-flows/screens; ручна ship-перевірка AC-21 (HTTPS через Caddy, збереження при зупиненому web)",
+      "layer": "docs",
+      "deps": [],
+      "acs": [
+        "AC-21"
+      ],
+      "dod": "тести та gate (ruff, mypy, pytest) зелені; знахідку рев'ю закрито",
+      "files_hint": [
+        "docs/features/dashboard-charts/sad.md",
+        "docs/features/dashboard-charts/spec.md"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t24-fix-docs-sad-ac21.md",
+      "status": "todo"
     }
   ]
 }

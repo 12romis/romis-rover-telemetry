@@ -112,6 +112,17 @@ def test_ac12_no_straight_section_does_not_mix_with_other_reasons(stored_session
     assert p.faster is None
 
 
+def test_ac12_unknown_moving_or_encoders_is_not_reported_not_no_straight(
+    stored_session: Factory,
+) -> None:
+    """Review F8, ADR-0003: «прямої ділянки не було» лише за відомих руху й енкодерів."""
+    base = {**FULL, "speed_imbalance_pct": None}
+    for unknown in ({"moving_ms": None}, {"encoders_left": None}, {"encoders_right": None}):
+        p = _point(stored_session, **{**base, **unknown})
+        assert isinstance(p.imbalance_pct, Absent)
+        assert p.imbalance_pct.reason is AbsentReason.NOT_REPORTED, unknown
+
+
 def test_ac12_unreported_speed_with_encoder_and_motion(stored_session: Factory) -> None:
     p = _point(stored_session, **{**FULL, "speed_left_peak_rpm": None})
 
@@ -146,7 +157,8 @@ def test_no_data_at_all_is_not_reported_not_zero(stored_session: Factory) -> Non
     p = _point(stored_session)
 
     assert isinstance(p.left_avg, Absent) and p.left_avg.reason is AbsentReason.NOT_REPORTED
-    assert p.imbalance_pct == Absent(AbsentReason.NO_STRAIGHT)
+    assert isinstance(p.imbalance_pct, Absent)
+    assert p.imbalance_pct.reason is AbsentReason.NOT_REPORTED
 
 
 def test_gap_slot(stored_session: Factory) -> None:
