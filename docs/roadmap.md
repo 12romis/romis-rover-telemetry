@@ -1,6 +1,6 @@
 ---
 status: living
-updated_at: "2026-10-23"
+updated_at: "2026-10-24"
 ---
 
 # Roadmap — romis-rover-telemetry
@@ -21,7 +21,7 @@ updated_at: "2026-10-23"
 |---|---|---|:---:|---|
 | 1 | Скелет проєкту: пакет, pytest із фікстурами, міграції, ruff/mypy, Docker, CI | `docs/architecture-map.md` Module inventory, `docs/features/_scaffold/tasks.json` | M | shipped |
 | 2 | Звіти зберігаються: розбір за контрактом, БД `rover` (`sessions`, `rejected`, ролі), ingest, звужений ACL брокера і запуск у проді з перевіркою реального звіту | `docs/idea-brief.md` §7 Recommendation | M | shipped → [`docs/features/ingest/`](features/ingest/spec.md) |
-| 3 | Публічний дашборд: дизайн-канон, каркас `web`, домен через Caddy, блок «Підсумки + таблиця виїздів» | `docs/idea-brief.md` §5 Out of scope | M | idea |
+| 3 | Публічний дашборд: дизайн-канон, каркас `web`, домен через Caddy, блок «Підсумки + таблиця виїздів» | `docs/idea-brief.md` §5 Out of scope | M | spec'd → [`docs/features/dashboard-summary/`](features/dashboard-summary/spec.md) |
 | 4 | Блок «Акумулятор»: старт, мінімум, кінець, просадка по виїздах | `docs/idea-brief.md` §5 Out of scope | M | idea |
 | 5 | Блок «Перешкоди»: схема ровера з 4 датчиками (`holds.by_sensor`) і розподіл `holds.min_mm` проти порога | `docs/idea-brief.md` §5 Out of scope | L | idea |
 | 6 | Блок «Рух і борти»: лівий проти правого, швидкості, сесії без енкодера | `docs/idea-brief.md` §5 Out of scope | M | idea |
@@ -47,7 +47,7 @@ updated_at: "2026-10-23"
 
 | # | Question | Type | Owner | Blocks |
 |---|---|:---:|:---:|:---:|
-| D1 | Як подати вибірку з кількох виїздів, щоб не ввести глядачів в оману (`by_sensor` рахує датчики, злипання за «отримано», `null` проти 0) | grilling | human | 3 |
+| D1 | Як подати вибірку з кількох виїздів, щоб не ввести глядачів в оману (`by_sensor` рахує датчики, злипання за «отримано», `null` проти 0) — для кроку 3 закрито (`null` проти 0, пропуски, «отримано»); `by_sensor` лишається для кроку 5, злипання за «отримано» — для кроків 4, 8 | grilling | human | 5 |
 | D2 | Точне правило нового циклу заряду | grilling | human | 8 |
 | D3 | Чи існує вже постійна сесія підписника на брокері (`docker logs mosquitto` під час першого підключення ingest; порівняти перший `seq` із 27) — **вирішено 2026-10-24**: черга була, перший `seq` 36 | research | agent | 2 |
 | D4 | Створити DNS-запис `rover.romis.cloud` до розгортання | task | human | 3 |
