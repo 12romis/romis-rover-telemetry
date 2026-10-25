@@ -22,7 +22,7 @@ updated_at: "2026-10-24"
 | 1 | Скелет проєкту: пакет, pytest із фікстурами, міграції, ruff/mypy, Docker, CI | `docs/architecture-map.md` Module inventory, `docs/features/_scaffold/tasks.json` | M | shipped |
 | 2 | Звіти зберігаються: розбір за контрактом, БД `rover` (`sessions`, `rejected`, ролі), ingest, звужений ACL брокера і запуск у проді з перевіркою реального звіту | `docs/idea-brief.md` §7 Recommendation | M | shipped → [`docs/features/ingest/`](features/ingest/spec.md) |
 | 3 | Публічний дашборд: дизайн-канон, каркас `web`, домен через Caddy, блок «Підсумки + таблиця виїздів» | `docs/idea-brief.md` §5 Out of scope | M | shipped → [`docs/features/dashboard-summary/`](features/dashboard-summary/spec.md) |
-| 4 | Блоки з графіками на одній сторінці: «Акумулятор» (старт, мінімум, кінець, просадка), «Перешкоди» (схема з 4 датчиками `holds.by_sensor`, `holds.min_mm` проти порога) і «Рух і борти» (лівий проти правого, швидкості, сесії без енкодера); об'єднані колишні кроки 4, 5, 6 | `docs/idea-brief.md` §5 Out of scope | L | building → [`docs/features/dashboard-charts/`](features/dashboard-charts/spec.md) |
+| 4 | Блоки з графіками на одній сторінці: «Акумулятор» (старт, мінімум, кінець, просадка), «Перешкоди» (схема з 4 датчиками `holds.by_sensor`, `holds.min_mm` проти порога) і «Рух і борти» (лівий проти правого, швидкості, сесії без енкодера); об'єднані колишні кроки 4, 5, 6 | `docs/idea-brief.md` §5 Out of scope | L | shipped → [`docs/features/dashboard-charts/`](features/dashboard-charts/spec.md) |
 | 7 | Щоденний `pg_dump` | `docs/idea-brief.md` §5 Out of scope | S | idea |
 | 8 | Решта графіків: активність у часі, цикли заряду, склад часу виїзду, якість даних → see [Not yet specified](#not-yet-specified) | `docs/idea-brief.md` §5 Out of scope | fog | idea |
 
@@ -95,3 +95,4 @@ flowchart LR
 | 1 · Скелет проєкту | 2026-10-23 | коміт `8306542` |
 | 2 · Звіти зберігаються (ingest) | 2026-10-24 | [changelog](features/ingest/changelog.md); PR — після створення |
 | 3 · Публічний дашборд (підсумки + виїзди) | 2026-10-24 | [changelog](features/dashboard-summary/changelog.md); PR — після створення |
+| 4 · Блоки з графіками | 2026-10-25 | [changelog](features/dashboard-charts/changelog.md); PR — після створення |
