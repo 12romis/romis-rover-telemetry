@@ -1,10 +1,13 @@
 """Статичні перевірки `charts.js` без браузера: заборонені виклики й доменні числа (SAD §8)."""
 
 import re
+from datetime import datetime
 from pathlib import Path
 
 import pytest
+from charts_helpers import page
 
+from rover_telemetry.domain.dashboard import StoredSession
 from rover_telemetry.web import templating
 
 STATIC = Path(templating.__file__).parent / "static"
@@ -65,12 +68,6 @@ def test_is_one_iife_with_strict_mode(source: str) -> None:
 
 
 def test_script_tags_in_page_are_local_and_deferred() -> None:
-    from datetime import datetime
-
-    from charts_helpers import page
-
-    from rover_telemetry.domain.dashboard import StoredSession
-
     def make(**fields: int) -> StoredSession:
         return StoredSession(mac="288485922c94", seq=1, received_at=datetime.now(), **fields)
 

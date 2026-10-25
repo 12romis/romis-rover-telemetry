@@ -52,8 +52,9 @@
 {% macro chart_unavailable() %}Графік тимчасово недоступний. Решта сторінки працює — спробуйте оновити сторінку трохи пізніше.{% endmacro %}
 
 {# Блок: ok — заголовок, опис, вміст із caller() і дані як JSON; empty — опис і «немає даних»;
-   error — лише заголовок і повідомлення без подробиць (AC-17, AC-19). Дані — лише `tojson`. #}
-{% macro chart_block(key, title, state, data, description) %}
+   error — лише заголовок і повідомлення без подробиць (AC-17, AC-19). `data_json` — дані, підготовлені
+   `tojson` (Markup); звичайний рядок екранується. #}
+{% macro chart_block(key, title, state, data_json, description) %}
 <section class="chart-block" id="chart-block-{{ key }}" data-chart-block="{{ key }}" data-state="{{ state }}">
   <h2>{{ title }}</h2>
   {% if state == 'error' %}
@@ -64,16 +65,17 @@
   <p class="state-message" role="status">{{ no_data() }}: виїздів ще не збережено</p>
   {% else %}
   {{ caller() }}
-  <script type="application/json" id="chart-data-{{ key }}">{{ data|tojson }}</script>
+  <script type="application/json" id="chart-data-{{ key }}">{{ data_json }}</script>
   {% endif %}
   {% endif %}
 </section>
 {% endmacro %}
 
-{# Один графік: JS показує заповнювач і малює; без скрипта лишається <noscript> (AC-19). #}
+{# Один графік: JS показує заповнювач і малює; без скрипта лишається <noscript> (AC-19).
+   Роль і назву для читача екрана (`role="img"`) ставить скрипт, коли графік намальовано. #}
 {% macro chart(name, subtitle) %}
 <h3>{{ subtitle }}</h3>
-<div class="chart" data-chart="{{ name }}" role="img" aria-label="{{ subtitle }}">Графік завантажується…</div>
+<div class="chart" data-chart="{{ name }}" data-label="{{ subtitle }}">Графік завантажується…</div>
 <noscript><p class="state-message" role="status">{{ chart_unavailable() }}</p></noscript>
 {% endmacro %}
 

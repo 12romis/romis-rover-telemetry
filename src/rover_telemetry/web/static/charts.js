@@ -259,6 +259,9 @@
     }
     element.hidden = false;
     element.textContent = '';
+    // Намальований графік — зображення з назвою; заповнювач і повідомлення про збій — звичайний текст.
+    element.setAttribute('role', 'img');
+    element.setAttribute('aria-label', element.getAttribute('data-label') || '');
     var chart = echarts.init(element, null, { renderer: 'canvas' });
     chart.setOption(option);
     charts.push({ chart: chart, element: element, section: section });
@@ -963,6 +966,8 @@
     var elements = section.querySelectorAll('.chart');
     for (var i = 0; i < elements.length; i++) {
       elements[i].hidden = false;
+      elements[i].removeAttribute('aria-label');
+      elements[i].setAttribute('role', 'status');
       elements[i].textContent = UNAVAILABLE;
     }
   }

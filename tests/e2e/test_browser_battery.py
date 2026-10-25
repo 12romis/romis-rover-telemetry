@@ -5,13 +5,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from e2e_support import watch_page
-from playwright.sync_api import expect
+from e2e_support import expect, watch_page
 
 from rover_telemetry.db.reading import Snapshot
 from rover_telemetry.domain.dashboard import GapNumber, StoredSession
-
-pytest.importorskip("playwright.sync_api")
 
 pytestmark = pytest.mark.e2e
 
@@ -233,10 +230,13 @@ def test_tap_on_gap_slot_shows_no_tooltip(
     serve_snapshot(snapshot())
     page, _ = open_page(browser, base_url, viewport=PHONE, has_touch=True)
 
+    x, y = pixel_of(page, "battery-voltage", "39")  # контроль: дотик до виїзду підказку показує
+    page.touchscreen.tap(x, y)
+    page.get_by_text("Виїзд № 39").first.wait_for()
     x, y = pixel_of(page, "battery-voltage", "40")
     page.touchscreen.tap(x, y)
-    page.wait_for_timeout(400)
 
+    expect(page.locator(".chart-tip:visible")).to_have_count(0)  # попередня підказка зникла
     assert page.get_by_text("Виїзд № 40").count() == 0
 
 

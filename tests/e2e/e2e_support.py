@@ -3,6 +3,11 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+import pytest
+
+# Без пакета playwright пропускається кожен тестовий модуль, що імпортує цей файл (маркер `e2e`).
+expect = pytest.importorskip("playwright.sync_api").expect
+
 
 @dataclass
 class Watch:

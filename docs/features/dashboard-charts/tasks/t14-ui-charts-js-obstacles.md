@@ -5,7 +5,7 @@ layer: "ui"
 deps: ["T11", "T13"]
 blocks: ["T16"]
 acs: ["AC-07", "AC-08", "AC-09"]
-files_hint: ["src/rover_telemetry/web/static/charts.js", "tests/e2e/test_charts_obstacles.py"]
+files_hint: ["src/rover_telemetry/web/static/charts.js", "tests/e2e/test_browser_obstacles.py"]
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
@@ -116,7 +116,7 @@ Internal — no API surface.
 - [ ] Слот «утримань не було»: суцільна тонка рамка без заливки з підписом «утримань не було» — візуально відмінна і від стовпця, і від штрихованого «немає даних»; слот «немає даних» — штрихування `--color-no-data` з причиною вздовж слота — `charts.js`.
 - [ ] Графік «Захист від перешкод вимкнено, с»: стовпець секунд на виїзд, виміряний нуль — стовпець нульової висоти з підписом «0 с»; відсутнє значення — «немає даних» — `charts.js`.
 - [ ] Підказка слота (T13): «Найменша відстань — N мм», «Датчик — <підпис>» (невідоме — `sensor_raw` через `textContent`), «Захист вимкнено — X с»; `NO_HOLDS` — «утримань не було», `NOT_REPORTED` — «немає даних» + причина — `charts.js`.
-- [ ] e2e: слот «утримань не було» намальований як рамка, не як стовпець нульової висоти; 190 мм — лінія з підписом; підказка торкання; XSS-фікстура в `holds_min_sensor` не виконується — `tests/e2e/test_charts_obstacles.py`.
+- [ ] e2e: слот «утримань не було» намальований як рамка, не як стовпець нульової висоти; 190 мм — лінія з підписом; підказка торкання; XSS-фікстура в `holds_min_sensor` не виконується — `tests/e2e/test_browser_obstacles.py`.
 
 ## Edge cases
 

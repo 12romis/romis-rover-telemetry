@@ -286,7 +286,7 @@
         "src/rover_telemetry/web/static/charts.js",
         "src/rover_telemetry/web/templates/dashboard.html",
         "tests/unit/test_charts_js_static.py",
-        "tests/e2e/test_charts_battery.py"
+        "tests/e2e/test_browser_battery.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t13-ui-charts-js-core-battery.md",
       "status": "done"
@@ -307,7 +307,7 @@
       "dod": "e2e блока «Перешкоди» проходить у Chromium на 360 px: 0 порушень CSP, 0 сторонніх запитів",
       "files_hint": [
         "src/rover_telemetry/web/static/charts.js",
-        "tests/e2e/test_charts_obstacles.py"
+        "tests/e2e/test_browser_obstacles.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t14-ui-charts-js-obstacles.md",
       "status": "done"
@@ -328,7 +328,7 @@
       "dod": "e2e блока «Рух і борти» проходить у Chromium на 360 px: 0 порушень CSP",
       "files_hint": [
         "src/rover_telemetry/web/static/charts.js",
-        "tests/e2e/test_charts_motion.py"
+        "tests/e2e/test_browser_motion.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t15-ui-charts-js-motion.md",
       "status": "done"
@@ -348,7 +348,7 @@
       ],
       "dod": "e2e-набір проходить у Chromium на 360 px",
       "files_hint": [
-        "tests/e2e/test_dashboard_page.py",
+        "tests/e2e/test_browser_page.py",
         "tests/e2e/conftest.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t16-tests-e2e-page.md",
@@ -511,6 +511,86 @@
         "docs/features/dashboard-charts/spec.md"
       ],
       "file": "docs/features/dashboard-charts/tasks/t24-fix-docs-sad-ac21.md",
+      "status": "done"
+    },
+    {
+      "id": "T25",
+      "title": "Review G1+G2+G3+G5+G11+G12+G16: слот «немає даних» зі спільною причиною обох бортів, підписи в межах полотна на 360 px, штрихування просадки, іменовані презентаційні константи, токен штриховки, формат підказки за SCR-05",
+      "layer": "ui",
+      "deps": [
+        "T22"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-04",
+        "AC-12",
+        "AC-13",
+        "AC-18"
+      ],
+      "dod": "тести та gate (ruff, mypy, pytest) зелені; знахідки рев'ю закрито",
+      "files_hint": [
+        "src/rover_telemetry/web/static/charts.js",
+        "src/rover_telemetry/web/static/app.css",
+        "tests/e2e/test_browser_labels.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t25-review-g.md",
+      "status": "done"
+    },
+    {
+      "id": "T26",
+      "title": "Review G6+G9+G10: числа опису блока з констант; роль і назва графіка ставить скрипт; одна серіалізація даних блока у межі ізоляції",
+      "layer": "ports",
+      "deps": [
+        "T25"
+      ],
+      "acs": [
+        "AC-14",
+        "AC-19"
+      ],
+      "dod": "тести та gate (ruff, mypy, pytest) зелені; знахідки рев'ю закрито",
+      "files_hint": [
+        "src/rover_telemetry/web/chart_blocks.py",
+        "src/rover_telemetry/web/templates/_macros.html",
+        "src/rover_telemetry/web/templating.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t26-review-g.md",
+      "status": "done"
+    },
+    {
+      "id": "T27",
+      "title": "Review G8+G14+G15+G17: e2e без JS, importorskip до імпорту playwright, позитивний контроль у тестах «без підказки», імпорти тесту нагору",
+      "layer": "tests",
+      "deps": [
+        "T25"
+      ],
+      "acs": [
+        "AC-15",
+        "AC-19"
+      ],
+      "dod": "тести та gate (ruff, mypy, pytest) зелені; знахідки рев'ю закрито",
+      "files_hint": [
+        "tests/e2e/e2e_support.py",
+        "tests/e2e/test_browser_page.py",
+        "tests/unit/test_charts_js_static.py"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t27-review-g.md",
+      "status": "done"
+    },
+    {
+      "id": "T28",
+      "title": "Review G4+G7+G13+G18: NFR 3 с у SAD/T16/T17 і spec dashboard-summary; files_hint e2e; нові компоненти в design-system.md; речення SAD §6",
+      "layer": "docs",
+      "deps": [],
+      "acs": [
+        "AC-14"
+      ],
+      "dod": "тести та gate (ruff, mypy, pytest) зелені; знахідки рев'ю закрито",
+      "files_hint": [
+        "docs/features/dashboard-charts/sad.md",
+        "docs/design-system.md",
+        "docs/features/dashboard-summary/spec.md"
+      ],
+      "file": "docs/features/dashboard-charts/tasks/t28-review-g.md",
       "status": "done"
     }
   ]

@@ -4,6 +4,9 @@ import json
 import re
 from pathlib import Path
 
+from jinja2.utils import htmlsafe_json_dumps
+from markupsafe import Markup
+
 from rover_telemetry.web import templating
 from rover_telemetry.web.templating import make_environment
 
@@ -19,15 +22,20 @@ def render(source: str, **context: object) -> str:
     return make_environment().from_string(IMPORT + source).render(**context)
 
 
+def embed(data: object) -> Markup:
+    """Дані блока так, як їх готує `chart_blocks`: `tojson` середовища, безпечна для `<script>`."""
+    return htmlsafe_json_dumps(data, **make_environment().policies["json.dumps_kwargs"])
+
+
 BLOCK_OK = (
-    "{% call chart_block('battery', 'Акумулятор', 'ok', data, 'Опис блока.') %}"
+    "{% call chart_block('battery', 'Акумулятор', 'ok', data_json, 'Опис блока.') %}"
     "{{ chart('voltage', 'Напруга') }}{{ chart_notes(notes) }}{{ chart_warning('Застереження.') }}"
     "{% endcall %}"
 )
 
 
 def test_ok_block_has_title_description_chart_data_and_noscript() -> None:
-    html = render(BLOCK_OK, data={"points": [1]}, notes=["Рядок"])
+    html = render(BLOCK_OK, data_json=embed({"points": [1]}), notes=["Рядок"])
 
     assert "<h2>Акумулятор</h2>" in html
     assert "Опис блока." in html
@@ -41,7 +49,7 @@ def test_ok_block_has_title_description_chart_data_and_noscript() -> None:
 
 
 def test_data_is_embedded_as_json_script_and_roundtrips() -> None:
-    html = render(BLOCK_OK, data={"points": [1, None], "name": "ровер"}, notes=[])
+    html = render(BLOCK_OK, data_json=embed({"points": [1, None], "name": "ровер"}), notes=[])
 
     match = re.search(
         r'<script type="application/json" id="chart-data-battery">(.*?)</script>', html, re.S
@@ -52,7 +60,7 @@ def test_data_is_embedded_as_json_script_and_roundtrips() -> None:
 
 def test_data_with_script_close_tag_cannot_break_out() -> None:
     evil = "</script><script>alert(1)</script><b>&'\""
-    html = render(BLOCK_OK, data={"x": evil}, notes=[])
+    html = render(BLOCK_OK, data_json=embed({"x": evil}), notes=[])
 
     body = re.search(r'id="chart-data-battery">(.*?)</script>', html, re.S)
     assert body is not None
@@ -97,7 +105,7 @@ def test_macros_do_not_use_safe_filter() -> None:
 
 def test_loading_placeholder_is_visible_until_charts_js_replaces_it() -> None:
     """Review F11, screens.md `loading`: заповнювач не під `hidden` і має висоту графіка."""
-    html = render(BLOCK_OK, data={"points": [1]}, notes=[])
+    html = render(BLOCK_OK, data_json=embed({"points": [1]}), notes=[])
 
     tag = re.search(r'<div class="chart"[^>]*>', html)
     assert tag is not None and "hidden" not in tag.group(0)
@@ -111,3 +119,20 @@ def test_without_script_the_placeholder_is_hidden_by_noscript_stylesheet() -> No
 
     assert '<noscript><link rel="stylesheet" href="/static/no-js.css"></noscript>' in base
     assert re.search(r"\.chart\s*\{[^}]*display:\s*none", css)
+
+
+def test_data_that_is_not_prepared_markup_is_escaped_not_trusted() -> None:
+    """Review G10: макрос вставляє лише підготовлений `tojson`; звичайний рядок екранується."""
+    html = render(BLOCK_OK, data_json="</script><b>x</b>", notes=[])
+
+    assert "</script><b>" not in html and "&lt;/script&gt;" in html
+
+
+def test_placeholder_is_readable_text_and_the_name_waits_for_the_drawn_chart() -> None:
+    """Review G9: `role="img"` ховає текст від читача екрана, тож скрипт ставить його сам."""
+    html = render(BLOCK_OK, data_json=embed({"points": [1]}), notes=[])
+
+    tag = re.search(r'<div class="chart"[^>]*>', html)
+    assert tag is not None
+    assert 'role="img"' not in tag.group(0) and "aria-label" not in tag.group(0)
+    assert 'data-label="Напруга"' in tag.group(0)

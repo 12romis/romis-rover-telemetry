@@ -1,8 +1,10 @@
 """Реєстр блоків графіків: ізоляція збою кожного блока, стани, дані (AC-17, AC-19, AC-22)."""
 
+import json
 import logging
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -247,11 +249,16 @@ def _bad_data(snapshot: Snapshot) -> BlockView:
     return BlockView("_description.html", {}, {"block": "x", "n": datetime(2026, 10, 24)})
 
 
+def _bad_nan(snapshot: Snapshot) -> BlockView:
+    """NaN не є JSON: `JSON.parse` у браузері його не прочитає, тож це збій блока."""
+    return BlockView("_description.html", {}, {"block": "x", "n": float("nan")})
+
+
 def _bad_template(snapshot: Snapshot) -> BlockView:
     return BlockView("_немає_такого_шаблону.html", {}, {"block": "x"})
 
 
-@pytest.mark.parametrize("build", [_bad_data, _bad_template])
+@pytest.mark.parametrize("build", [_bad_data, _bad_nan, _bad_template])
 def test_ac19_render_failure_of_one_block_is_isolated(
     build: Callable[[Snapshot], BlockView],
     monkeypatch: pytest.MonkeyPatch,
@@ -290,3 +297,27 @@ def test_ac19_page_survives_block_whose_data_cannot_be_serialized(
     assert response.status_code == 200
     assert response.text.count(UNAVAILABLE) == 1
     assert response.text.count('data-state="ok"') == 2
+
+
+def test_each_block_data_is_serialized_once_and_embedded_as_rendered(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    stored_session: Factory,
+) -> None:
+    """Review G10: перевірка межі ізоляції і вставка на сторінку — одна серіалізація на блок."""
+    calls: list[object] = []
+    real_dumps = json.dumps
+
+    def spy(obj: Any, *args: Any, **kwargs: Any) -> str:
+        calls.append(obj)
+        return real_dumps(obj, *args, **kwargs)
+
+    monkeypatch.setattr(json, "dumps", spy)
+    monkeypatch.setattr(chart_blocks, "BLOCKS", _specs())
+    serve(Snapshot([stored_session(seq=1)], []))
+
+    response = client.get("/")
+
+    assert response.text.count('type="application/json"') == 3
+    blocks = [c["block"] for c in calls if isinstance(c, dict) and "block" in c]
+    assert blocks == ["battery", "obstacles", "motion"]  # по разу на блок, не двічі

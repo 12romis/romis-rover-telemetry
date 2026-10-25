@@ -14,8 +14,6 @@ from e2e_support import text_problems, watch_page
 from rover_telemetry.db.reading import Snapshot
 from rover_telemetry.domain.dashboard import StoredSession
 
-pytest.importorskip("playwright.sync_api")
-
 pytestmark = pytest.mark.e2e
 
 MAC = "288485922c94"

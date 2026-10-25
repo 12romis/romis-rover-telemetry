@@ -3,7 +3,7 @@ status: Living
 tool: code
 figma_file: ""
 pen_file: ""
-updated_at: "2026-10-24"
+updated_at: "2026-10-25"
 ---
 
 # Design system — romis-rover-telemetry
@@ -33,7 +33,7 @@ updated_at: "2026-10-24"
 
 ## Component inventory
 
-Компоненти прив'язані до `file:line` коду; графік ECharts ще планується. `screens.md` використовує лише ці імена або оголошує `NEW: <name>` з поясненням, чому не підходить жоден примітив.
+Компоненти прив'язані до `file:line` коду. `screens.md` використовує лише ці імена або оголошує `NEW: <name>` з поясненням, чому не підходить жоден примітив.
 
 | Component | Source (`file:line` / node / URL) | States it supports | Notes |
 |---|---|---|---|
@@ -44,7 +44,11 @@ updated_at: "2026-10-24"
 | Рядок виїзду (макрос) | `src/rover_telemetry/web/templates/_macros.html:27` | collapsed / expanded | Нативний `<details>`/`<summary>`, шапка ≥ 44 px, 10 полів AC-03, без скриптів (feature ADR-0002) |
 | Позначка пропуску (макрос) | `src/rover_telemetry/web/templates/_macros.html:47` | default | Нерозгортуваний рядок зі штриховою рамкою; однакова для втраченого й відхиленого номера |
 | Блок звіту (макрос) | `src/rover_telemetry/web/templates/_macros.html:22` | default | `<pre>` з форматованим JSON із `payload`; екранує лише autoescape |
-| Графік ECharts | `docs/architecture-map.md:109` (`web/static/echarts.min.js`) | default / loading / empty / error | Дані з JSON-ендпоінтів FastAPI (`docs/architecture-map.md:110`); без CDN |
+| Графік ECharts | `src/rover_telemetry/web/templates/_macros.html:76` (макрос `chart`), `src/rover_telemetry/web/static/charts.js:255` (`mount`); бібліотека — `web/static/echarts.min.js` (`VENDOR.md`) | default / loading / empty / error | Дані вбудовані в сторінку як `<script type="application/json">` із одного зрізу (feature ADR-0001), без JSON-ендпоінтів і CDN; заповнювач — текст, роль `img` ставить скрипт після малювання |
+| Блок графіка | `src/rover_telemetry/web/templates/_macros.html:57` (макрос `chart_block`) | ok / empty / error | Оболонка `<h2>`, опис, вміст блока й дані JSON; збій одного блока не торкається решти (feature `dashboard-charts`, AC-19) |
+| Схема датчиків | `src/rover_telemetry/web/templates/_macros.html:90` (макрос `sensor_diagram`) | default / немає даних | Вбудований SVG ровера з чотирма числами біля датчиків; працює без скрипта |
+| Список приміток блоку | `src/rover_telemetry/web/templates/_macros.html:82` (макроси `chart_notes`, `chart_warning`) | default / порожній | Рядки «Немає даних — виїзд № N: …» поза полотном графіка; порожній список нічого не виводить |
+| Підказка виїзду | `src/rover_telemetry/web/static/charts.js:98` (`tooltipFor`), `:84` (`row`) | default / shown | Збирається лише через `createElement`/`textContent` (CSP, spec §6.1); пара «підпис — значення», відсутнє — «немає даних — причина» |
 
 ## Interaction & writing conventions
 

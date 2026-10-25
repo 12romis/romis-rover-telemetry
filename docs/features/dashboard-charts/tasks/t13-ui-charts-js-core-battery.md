@@ -5,7 +5,7 @@ layer: "ui"
 deps: ["T7", "T9", "T10"]
 blocks: ["T14", "T15", "T16"]
 acs: ["AC-01", "AC-02", "AC-15", "AC-16", "AC-18", "AC-19"]
-files_hint: ["src/rover_telemetry/web/static/charts.js", "src/rover_telemetry/web/templates/dashboard.html", "tests/unit/test_charts_js_static.py", "tests/e2e/test_charts_battery.py"]
+files_hint: ["src/rover_telemetry/web/static/charts.js", "src/rover_telemetry/web/templates/dashboard.html", "tests/unit/test_charts_js_static.py", "tests/e2e/test_browser_battery.py"]
 owner: "12romis"
 estimate: "L"
 context_budget: "M"
@@ -151,7 +151,7 @@ Internal — no API surface.
 - [ ] Спільна підказка SCR-05: `tooltip.confine = true`, `triggerOn: 'mousemove|click'` (дотик працює), `formatter` повертає DOM-елемент, зібраний через `createElement`/`textContent`: «Виїзд № N», «Отримано (за київським часом): …», рядки «підпис — значення»; відсутнє — курсив «немає даних» + причина з даних; для слота `gap` підказки немає — `charts.js`.
 - [ ] Графіки «Акумулятор»: «Напруга по виїздах» — коло (початок), ромб (мінімум), квадрат (кінець), відрізок між ними в межах слота, пунктирні підписані `markLine` для відсічки й повного заряду з `constants`, вісь Y не від нуля і ширша за обидві лінії, підпис на слоті `end_reason_label`; «Просадка» — стовпці від нуля, підпис «найбільша просадка» на `largest_drop_seq` — `charts.js`.
 - [ ] У `dashboard.html` підключити `<script src="/static/echarts.min.js" defer>` і `<script src="/static/charts.js" defer>` (лише власний вузол, без inline) — `src/rover_telemetry/web/templates/dashboard.html`.
-- [ ] `tests/unit/test_charts_js_static.py`: у `charts.js` немає `innerHTML`, `eval`, `fetch`, `document.write`, чисел 6.0 / 8.4 / 190 / 0.1382. `tests/e2e/test_charts_battery.py`: графік малюється на 360 px, слот-пропуск має підпис, `NULL` напруга не дає точки на нулі, під CSP 0 порушень — `tests/unit/test_charts_js_static.py`, `tests/e2e/test_charts_battery.py`.
+- [ ] `tests/unit/test_charts_js_static.py`: у `charts.js` немає `innerHTML`, `eval`, `fetch`, `document.write`, чисел 6.0 / 8.4 / 190 / 0.1382. `tests/e2e/test_browser_battery.py`: графік малюється на 360 px, слот-пропуск має підпис, `NULL` напруга не дає точки на нулі, під CSP 0 порушень — `tests/unit/test_charts_js_static.py`, `tests/e2e/test_browser_battery.py`.
 
 ## Edge cases
 

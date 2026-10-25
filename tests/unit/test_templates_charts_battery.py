@@ -154,3 +154,11 @@ def test_empty_storage_gives_empty_battery_block() -> None:
 
     assert 'data-chart-block="battery" data-state="empty"' in html
     assert "виїздів ще не збережено" in html
+
+
+def test_description_numbers_come_from_the_domain_constants() -> None:
+    """Review G6, конституція №3: числа опису беруться з констант, а не вписані в рядок."""
+    text = chart_blocks.battery_description(cutoff_v=5.5, full_charge_v=9.0)
+
+    assert "(5,5 В)" in text and "(9,0 В)" in text and "6,0" not in text and "8,4" not in text
+    assert chart_blocks.battery_description() == manifest_description("Акумулятор")

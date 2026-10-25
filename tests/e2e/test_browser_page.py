@@ -8,14 +8,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from e2e_support import watch_page
-from playwright.sync_api import expect
+from e2e_support import expect, watch_page
 
 from rover_telemetry.db.reading import Snapshot
 from rover_telemetry.domain.dashboard import GapNumber, StoredSession
 from rover_telemetry.web import chart_blocks
-
-pytest.importorskip("playwright.sync_api")
 
 pytestmark = pytest.mark.e2e
 
@@ -133,17 +130,19 @@ def test_gap_slot_tap_gives_no_tooltip_and_no_console_error(
     page, watch = open_page(browser, base_url)
 
     page.locator('[data-chart="battery-voltage"]').scroll_into_view_if_needed()
-    x, y = page.evaluate(
-        """() => {
-          const el = document.querySelector('[data-chart="battery-voltage"]');
-          const c = echarts.getInstanceByDom(el);
-          const r = el.getBoundingClientRect();
-          return [r.left + c.convertToPixel({xAxisIndex: 0}, '25'), r.top + r.height / 2];
-        }"""
-    )
+    pixel = """(category) => {
+      const el = document.querySelector('[data-chart="battery-voltage"]');
+      const c = echarts.getInstanceByDom(el);
+      const r = el.getBoundingClientRect();
+      return [r.left + c.convertToPixel({xAxisIndex: 0}, category), r.top + r.height / 2];
+    }"""
+    x, y = page.evaluate(pixel, "26")  # контроль: дотик до виїзду підказку показує
     page.touchscreen.tap(x, y)
-    page.wait_for_timeout(400)
+    page.get_by_text("Виїзд № 26").first.wait_for()
+    x, y = page.evaluate(pixel, "25")
+    page.touchscreen.tap(x, y)
 
+    expect(page.locator(".chart-tip:visible")).to_have_count(0)  # попередня підказка зникла
     expect(page.get_by_text("Виїзд № 25")).to_have_count(0)
     assert watch.console_errors == []
 
@@ -308,3 +307,44 @@ def test_markup_from_a_report_is_never_executed_or_inserted(
     assert XSS in (page.locator("details.session").first.text_content() or "")  # як текст
     assert page.get_by_text("Занизька").count() == 0  # невідома причина не отримує позначки
     watch.assert_clean(base_url)
+
+
+def test_drawn_chart_is_an_image_and_failure_message_is_a_status(
+    browser: Any, base_url: str, serve_snapshot: Callable[[Snapshot], None]
+) -> None:
+    """Review G9, AC-19: назву графіка чує читач екрана, а повідомлення про збій — теж."""
+    serve_snapshot(real_snapshot())
+    page = browser.new_context(viewport=PHONE).new_page()
+    watch_page(page)
+
+    def drop_second_chart(route: Any) -> None:
+        response = route.fetch()
+        body = response.text().replace('data-chart="battery-drop"', 'data-chart="battery-gone"', 1)
+        route.fulfill(response=response, body=body)
+
+    page.route(f"{base_url}/", drop_second_chart)
+    page.goto(f"{base_url}/")
+    page.locator('[data-chart-block="battery"]').get_by_text(UNAVAILABLE).first.wait_for()
+    page.locator('[data-chart="motion-speed"] canvas').wait_for()
+
+    drawn = page.locator('[data-chart="motion-speed"]')
+    assert drawn.get_attribute("role") == "img"
+    assert drawn.get_attribute("aria-label") == "Швидкість бортів, м/с"
+    failed = page.locator('[data-chart-block="battery"] .chart').first
+    assert failed.get_attribute("role") == "status" and failed.get_attribute("aria-label") is None
+
+
+def test_without_script_the_placeholder_is_hidden_and_the_notice_is_shown(
+    browser: Any, base_url: str, serve_snapshot: Callable[[Snapshot], None]
+) -> None:
+    """Review G8, AC-19: скрипт вимкнений — «завантажується…» сховано, повідомлення видно."""
+    serve_snapshot(real_snapshot())
+    page = browser.new_context(viewport=PHONE, java_script_enabled=False).new_page()
+    page.set_default_timeout(10_000)
+    page.goto(f"{base_url}/")
+
+    expect(page.get_by_text("Графік завантажується…").first).to_be_hidden()
+    notice = page.locator("noscript p.state-message").first  # get_by_text не бачить <noscript>
+    expect(notice).to_be_visible()
+    expect(notice).to_contain_text(UNAVAILABLE)
+    assert page.locator("canvas").count() == 0

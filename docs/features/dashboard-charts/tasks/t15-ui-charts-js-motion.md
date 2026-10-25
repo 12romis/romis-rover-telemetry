@@ -5,7 +5,7 @@ layer: "ui"
 deps: ["T12", "T13"]
 blocks: []
 acs: ["AC-10", "AC-11", "AC-12"]
-files_hint: ["src/rover_telemetry/web/static/charts.js", "tests/e2e/test_charts_motion.py"]
+files_hint: ["src/rover_telemetry/web/static/charts.js", "tests/e2e/test_browser_motion.py"]
 owner: "12romis"
 estimate: "M"
 context_budget: "M"
@@ -126,7 +126,7 @@ Internal — no API surface.
 - [ ] У `charts.js` зареєструвати ініціалізатор блока `motion`: «Швидкість бортів, м/с» — лівий борт суцільний стовпець, правий — стовпець зі штриховкою (`decal`), пік — трикутник над стовпцем свого борту; вісь Y у м/с від нуля — `src/rover_telemetry/web/static/charts.js`.
 - [ ] «Різниця бортів, %» — стовпці від нуля (вгору — лівий швидший, вниз — правий), підпис «лівий швидший»/«правий швидший»/«однаково»; слоти без значення — штрихування «немає даних — <причина>» вздовж слота; під слотом «без енкодера: лівий / правий / обидва» — `charts.js`.
 - [ ] Підказка слота (T13): швидкості в м/с і об/хв (середня й пікова обох бортів), різниця бортів із підписом; кожне відсутнє — курсив «немає даних» + причина з даних, без 0 — `charts.js`.
-- [ ] e2e: слот `NOT_MOVING` не має стовпців; слот `NO_STRAIGHT` має швидкості, але не різницю; слот `no-encoder` має відсутні стовпці свого борту й підпис; графіки вміщуються на 360 px — `tests/e2e/test_charts_motion.py`.
+- [ ] e2e: слот `NOT_MOVING` не має стовпців; слот `NO_STRAIGHT` має швидкості, але не різницю; слот `no-encoder` має відсутні стовпці свого борту й підпис; графіки вміщуються на 360 px — `tests/e2e/test_browser_motion.py`.
 
 ## Edge cases
 

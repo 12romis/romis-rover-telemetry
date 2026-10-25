@@ -11,7 +11,6 @@
 плюс ключі, специфічні для блока. `received` — «отримано» за київським часом, не час виїзду.
 """
 
-import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -20,6 +19,7 @@ from functools import lru_cache
 from typing import Any
 
 from jinja2 import Environment
+from jinja2.utils import htmlsafe_json_dumps
 from markupsafe import Markup
 
 from rover_telemetry.db.reading import Snapshot
@@ -81,6 +81,7 @@ class RenderedBlock:
     state: str
     view: BlockView | None
     content: Markup | None = None
+    data_json: Markup | None = None  # дані блока для `<script type="application/json">`
 
 
 def _number(point: Point | None) -> float | None:
@@ -95,17 +96,34 @@ def _gap_line(axis: list[Slot]) -> list[str]:
 
 # --- Акумулятор (AC-01…AC-04, AC-14) ---------------------------------------------------------
 
-# Копія з маніфесту екранів (screens.md, «Копія „Акумулятор“»); тест звіряє дослівно.
-_BATTERY_DESCRIPTION = (
-    "Акумулятор. Тут видно, як змінювалася напруга акумулятора від виїзду до виїзду. Кожен виїзд "
-    "стоїть на своєму номері на горизонтальній осі — це номер сесії, а не час: старіші виїзди "
-    "ліворуч, новіші праворуч. Для кожного виїзду показано напругу на початку, найнижчу за виїзд і "
-    "наприкінці. Нижня лінія (6,0 В) — межа відсічки: коли напруга падає нижче, ровер припиняє "
-    "роботу; верхня (8,4 В) — повністю заряджений акумулятор. Просадка — на скільки напруга впала "
-    "під навантаженням: початкова мінус найнижча. Лінії між виїздами немає: між ними акумулятор "
-    "міг заряджатися. Акумулятор складається з двох банок, напруга однієї банки — половина "
-    "показаної."
-)
+_CELLS_GENITIVE = {2: "двох"}  # кількість банок прописом; інша кількість — явна правка тут
+
+
+def _volts(value: float) -> str:
+    return f"{value:.1f}".replace(".", ",")
+
+
+def battery_description(
+    cutoff_v: float = charts.CUTOFF_V,
+    full_charge_v: float = charts.FULL_CHARGE_V,
+    cells: int = charts.BATTERY_CELLS,
+) -> str:
+    """Копія з маніфесту екранів (screens.md, «Копія „Акумулятор“»); числа — з констант (№3)."""
+    return (
+        "Акумулятор. Тут видно, як змінювалася напруга акумулятора від виїзду до виїзду. Кожен "
+        "виїзд стоїть на своєму номері на горизонтальній осі — це номер сесії, а не час: старіші "
+        "виїзди ліворуч, новіші праворуч. Для кожного виїзду показано напругу на початку, "
+        "найнижчу за виїзд і наприкінці. "
+        f"Нижня лінія ({_volts(cutoff_v)} В) — межа відсічки: коли напруга падає нижче, ровер "
+        f"припиняє роботу; верхня ({_volts(full_charge_v)} В) — повністю заряджений акумулятор. "
+        "Просадка — на скільки напруга впала під навантаженням: початкова мінус найнижча. Лінії "
+        "між виїздами немає: між ними акумулятор міг заряджатися. "
+        f"Акумулятор складається з {_CELLS_GENITIVE[cells]} банок, напруга однієї банки — "
+        "половина показаної."
+    )
+
+
+_BATTERY_DESCRIPTION = battery_description()
 _BATTERY_VALUES = ("start", "min", "end")
 
 
@@ -450,10 +468,18 @@ def _environment() -> Environment:
     return make_environment()
 
 
-def _render_view(view: BlockView) -> Markup:
-    """Вміст блока й JSON рендеряться тут, під межею ізоляції, а не під час рендеру сторінки."""
-    json.dumps(view.data, allow_nan=False)  # той самий збій, що дав би `tojson` на сторінці
-    return Markup(_environment().get_template(view.template).render(ctx=view.context))
+def _render_view(view: BlockView) -> tuple[Markup, Markup]:
+    """Вміст блока й JSON рендеряться тут, під межею ізоляції, а не під час рендеру сторінки.
+
+    JSON готується за політикою `tojson` середовища (`json.dumps_kwargs`) — тією, що й для решти
+    шаблонів: одна серіалізація, без розбіжностей між перевіркою і вставкою.
+    """
+    env = _environment()
+    policies = env.policies
+    data_json = htmlsafe_json_dumps(
+        view.data, dumps=policies["json.dumps_function"], **policies["json.dumps_kwargs"]
+    )
+    return Markup(env.get_template(view.template).render(ctx=view.context)), data_json
 
 
 def render_blocks(snapshot: Snapshot) -> list[RenderedBlock]:
@@ -465,10 +491,12 @@ def render_blocks(snapshot: Snapshot) -> list[RenderedBlock]:
             continue
         try:
             view = spec.build(snapshot)
-            content = _render_view(view)
+            content, data_json = _render_view(view)
         except Exception as exc:  # межа ізоляції: причина лише в лог, на сторінку — повідомлення
             logger.error("chart_block_failed block=%s error_class=%s", spec.key, type(exc).__name__)
             blocks.append(RenderedBlock(spec.key, spec.title, spec.description, "error", None))
             continue
-        blocks.append(RenderedBlock(spec.key, spec.title, spec.description, "ok", view, content))
+        blocks.append(
+            RenderedBlock(spec.key, spec.title, spec.description, "ok", view, content, data_json)
+        )
     return blocks

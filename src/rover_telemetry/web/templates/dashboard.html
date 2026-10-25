@@ -8,7 +8,7 @@
 {% else %}
 {% include '_summary.html' %}
 {% for block in blocks|default([]) %}
-{% call chart_block(block.key, block.title, block.state, block.view.data if block.view else none, block.description) %}
+{% call chart_block(block.key, block.title, block.state, block.data_json, block.description) %}
 {{ block.content }}
 {% endcall %}
 {% endfor %}
