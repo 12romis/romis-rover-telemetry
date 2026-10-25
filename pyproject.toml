@@ -24,6 +24,7 @@ dev = [
     "httpx2",
     "ruff>=0.7",
     "mypy>=1.13",
+    "playwright>=1.49",
 ]
 
 [tool.setuptools.packages.find]
@@ -36,6 +37,7 @@ rover_telemetry = ["web/templates/*", "web/static/*"]
 testpaths = ["tests"]
 markers = [
     "integration: потребує реального Postgres 16 в ефемерному контейнері Docker",
+    "e2e: потребує Playwright і Chromium (`playwright install chromium`); без них пропускається",
 ]
 
 [tool.ruff]

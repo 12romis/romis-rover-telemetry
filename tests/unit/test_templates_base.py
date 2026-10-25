@@ -1,5 +1,6 @@
 """Базовий макет, макроси й опис (AC-02, AC-06, AC-10)."""
 
+import re
 from pathlib import Path
 
 import pytest
@@ -63,12 +64,18 @@ def test_base_layout_is_mobile_ready() -> None:
     assert '<link rel="stylesheet" href="/static/app.css">' in html
 
 
+# Скрипти дозволені лише двох видів: блок даних, який браузер не виконує (ADR-0001), і файл зі
+# свого вузла `/static/` (ADR-0002); inline-код та сторонні адреси CSP не пропустить.
+_ALLOWED_SCRIPT = re.compile(r'<script (?:type="application/json" id=|src="/static/)')
+
+
 @pytest.mark.parametrize("path", FILES, ids=lambda p: p.name)
 def test_no_external_addresses_scripts_or_inline_styles(path: Path) -> None:
-    """CSP `default-src 'self'`: ні зовнішніх адрес, ні скриптів, ні інлайн-стилів."""
+    """CSP `default-src 'self'`: ні зовнішніх адрес, ні inline-скриптів, ні інлайн-стилів."""
     text = path.read_text().lower()
-    for forbidden in ("http://", "https://", "@import", "<script", "style="):
+    for forbidden in ("http://", "https://", "@import", "style="):
         assert forbidden not in text, f"{path.name}: {forbidden}"
+    assert text.count("<script") == len(_ALLOWED_SCRIPT.findall(text)), f"{path.name}: <script"
 
 
 def test_css_has_wide_breakpoint_and_touch_target() -> None:

@@ -12,6 +12,7 @@ from typing import Any
 
 import psycopg
 import pytest
+from fastapi.testclient import TestClient
 from yoyo import get_backend, read_migrations
 
 from rover_telemetry.domain.dashboard import StoredSession
@@ -200,3 +201,43 @@ def stored_session() -> Callable[..., StoredSession]:
         return StoredSession(mac=mac, seq=seq, **{**base, **fields})
 
     return make
+
+
+# --- Сторінка на реальному Postgres: застосунок під `viewer`, запис — роллю `ingest` ---
+
+
+@pytest.fixture
+def client(viewer_url: str) -> Iterator[TestClient]:
+    from rover_telemetry.config import WebSettings
+    from rover_telemetry.web.app import app, get_settings
+
+    settings = WebSettings(
+        database_url=viewer_url, db_connect_timeout_s=3, db_statement_timeout_s=5
+    )
+    app.dependency_overrides[get_settings] = lambda: settings
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def store(ingest_url: str) -> Callable[..., bool]:
+    """Зберігає звіт ролью `ingest`; повертає `False` для дубля `(mac, seq)`."""
+    from datetime import UTC, datetime
+
+    from rover_telemetry.db.sessions import connect, insert_session
+    from rover_telemetry.domain.report import ParsedSession, parse_report
+
+    mac = "288485922c94"
+
+    def put(report: dict[str, Any], seq: int | None = None, minute: int = 0) -> bool:
+        doc = {**report, **({"seq": seq} if seq is not None else {})}
+        received = datetime(2026, 10, 23, 12, minute % 60, tzinfo=UTC)
+        parsed = parse_report(f"rover/{mac}/session", json.dumps(doc).encode(), received)
+        assert isinstance(parsed, ParsedSession)
+        with connect(ingest_url, timeout_s=5) as conn:
+            created = insert_session(conn, parsed)
+            conn.commit()
+        return created
+
+    return put

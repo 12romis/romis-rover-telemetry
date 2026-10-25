@@ -1,0 +1,13 @@
+{% from '_macros.html' import chart, chart_notes, chart_warning, sensor_diagram, metric_card %}
+<h3>Спрацювання датчиків за всі виїзди</h3>
+<div class="sensor-layout">
+  <figure class="sensor-diagram">
+    {{ sensor_diagram(ctx.sensors) }}
+    <figcaption class="chart-warning">{{ ctx.sensor_caption }}</figcaption>
+  </figure>
+  {{ metric_card('Утримань усього', ctx.holds_total, ctx.holds_note) }}
+</div>
+{{ chart('obstacles-distance', 'Найменша відстань до перешкоди на вході в утримання, мм') }}
+{{ chart('obstacles-control-off', 'Захист від перешкод вимкнено, с') }}
+{{ chart_notes(ctx.notes) }}
+{% if ctx.protection_off %}{{ chart_warning(ctx.protection_warning) }}{% endif %}

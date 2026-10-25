@@ -15,6 +15,7 @@ from rover_telemetry.config import WebSettings
 from rover_telemetry.db.reading import Snapshot, open_connection, read_snapshot
 from rover_telemetry.domain.dashboard import build_summary
 from rover_telemetry.domain.timeline import build_timeline
+from rover_telemetry.web.chart_blocks import render_blocks
 from rover_telemetry.web.templating import make_environment
 
 logger = logging.getLogger("rover_telemetry.web")
@@ -38,6 +39,9 @@ async def security_headers(
 ) -> Response:
     response = await call_next(request)
     response.headers.update(SECURITY_HEADERS)
+    if request.url.path.startswith("/static/"):
+        # Закріплені файли перевіряються за ETag при кожному відкритті; HTML лишається `no-store`.
+        response.headers["Cache-Control"] = "no-cache"
     return response
 
 
@@ -53,10 +57,11 @@ def load_snapshot(settings: Annotated[WebSettings, Depends(get_settings)]) -> Sn
 
 
 def _render(state: str, status_code: int, snapshot: Snapshot | None = None) -> HTMLResponse:
-    context: dict[str, object] = {"state": state, "summary": None, "items": []}
+    context: dict[str, object] = {"state": state, "summary": None, "items": [], "blocks": []}
     if snapshot is not None:
         context["summary"] = build_summary(snapshot.sessions, snapshot.gaps)
         context["items"] = build_timeline(snapshot.sessions, snapshot.gaps)
+        context["blocks"] = render_blocks(snapshot)
     html = _templates.get_template("dashboard.html").render(**context)
     return HTMLResponse(html, status_code=status_code)
 

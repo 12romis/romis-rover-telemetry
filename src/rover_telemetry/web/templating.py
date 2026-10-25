@@ -12,6 +12,9 @@ def make_environment() -> jinja2.Environment:
         autoescape=True,
         undefined=jinja2.StrictUndefined,
     )
+    # `tojson` для даних графіків: стабільний порядок ключів і без NaN/Infinity (їх не читає
+    # `JSON.parse`), тож такі дані — збій блока, а не зламана сторінка.
+    env.policies["json.dumps_kwargs"] = {"sort_keys": True, "allow_nan": False}
     env.globals.update(
         format_distance_cm=formatting.format_distance_cm,
         format_duration_ms=formatting.format_duration_ms,
@@ -20,5 +23,8 @@ def make_environment() -> jinja2.Environment:
         end_reason_label=formatting.end_reason_label,
         rover_name=formatting.rover_name,
         format_report=formatting.format_report,
+        absent_reason_label=formatting.absent_reason_label,
+        sensor_label=formatting.sensor_label,
+        side_label=formatting.side_label,
     )
     return env

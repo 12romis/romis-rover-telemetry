@@ -1,0 +1,4 @@
+{% from '_macros.html' import chart, chart_notes %}
+{{ chart('battery-voltage', 'Напруга по виїздах') }}
+{{ chart('battery-drop', 'Просадка') }}
+{{ chart_notes(ctx.notes) }}

@@ -1,0 +1,1011 @@
+/*
+ * Малювання графіків дашборду на закріпленому ECharts (ADR-0002).
+ *
+ * Скрипт «німий»: усі числа, причини відсутності й підписи приходять у даних блока
+ * (`<script type="application/json" id="chart-data-<блок>">`), а доменні константи — у
+ * `data.constants`. Нуль не підставляється замість відсутнього значення (конституція №4).
+ * Жодної розмітки зі звітних рядків: підказка збирається через createElement/textContent.
+ */
+(function () {
+  'use strict';
+
+  var UNAVAILABLE =
+    'Графік тимчасово недоступний. Решта сторінки працює — спробуйте оновити сторінку трохи пізніше.';
+  var NO_DATA = 'немає даних';
+  var NOT_REPORTED = 'ровер не передав'; // загальна форма absent_reason_label для code=not_reported
+  var GAP_LABEL = 'не дійшла';
+  var AXIS_NAME = 'Номер сесії';
+  var AXIS_PADDING = 0.4; // презентаційний запас осі напруги за крайніми значеннями, В (не доменна константа)
+  var MARKER_RADIUS = 4.5;
+  var MARKER_SHIFT = 10; // зсув маркерів початку й кінця від центра слота, px
+  // Презентаційні відступи й пропорції (не доменні константи, конституція №3).
+  var LABEL_WIDTH = 84; // ширина підпису причини завершення, px
+  var LABEL_LINE_HEIGHT = 14; // висота рядка такого підпису, px
+  var LABEL_GAP = 8; // відступ підпису від маркера, px
+  var GRID_BOTTOM = 56; // відступ поля знизу під вісь і її назву, px
+  var AXIS_LABELS_SPACE = 18; // скільки з нього ще забирають підписи осі (containLabel), px
+  var LABEL_LINES = 3; // скільки рядків підпису враховуємо при розміщенні
+  var BAR_HEADROOM = 1.25; // запас осі над найвищим стовпцем, щоб підпис над ним не виходив за поле
+  var NO_HOLDS_HEIGHT = 0.7; // висота рамки «утримань не було» від висоти поля
+  var SLOT_FILL = 0.8; // ширина штрихування слота від ширини категорії
+  var CAPTION_SIZE = 12; // кегль підписів у слоті, px
+  var NARROW_WIDTH = 520; // вужче — легенда може зайняти два рядки
+  var GRID_TOP = 44; // відступ поля під легенду в один рядок, px
+  var GRID_TOP_NARROW = 68; // те саме в два рядки
+
+  var charts = [];
+
+  // Вужчий екран → легенда переноситься, тож полю потрібен більший верхній відступ.
+  function gridTop() {
+    return document.documentElement.clientWidth < NARROW_WIDTH ? GRID_TOP_NARROW : GRID_TOP;
+  }
+
+  // ---------- Допоміжне ----------
+
+  function token(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  function comma(value, digits) {
+    return value.toFixed(digits).replace('.', ',');
+  }
+
+  function node(tag, text, className) {
+    var element = document.createElement(tag);
+    if (text !== undefined) {
+      element.textContent = text;
+    }
+    if (className) {
+      element.className = className;
+    }
+    return element;
+  }
+
+  function categories(data) {
+    return data.slots.map(function (slot) {
+      return String(slot.seq);
+    });
+  }
+
+  // Причина відсутнього значення за seq і назвою значення (текст готує сервер).
+  function reasonFor(data, seq, value) {
+    for (var i = 0; i < data.reasons.length; i++) {
+      var r = data.reasons[i];
+      if (r.seq === seq && r.value === value) {
+        return r.label;
+      }
+    }
+    return '';
+  }
+
+  // ---------- Підказка (SCR-05) ----------
+
+  // Рядок «підпис — значення»; відсутнє: підпис + курсив «немає даних» + повна причина.
+  function row(label, text, reason) {
+    var line = node('div', undefined, 'chart-tip__row');
+    if (text !== null) {
+      line.textContent = label + ' — ' + text;
+      return line;
+    }
+    line.appendChild(document.createTextNode(label + ' — '));
+    line.appendChild(node('em', NO_DATA));
+    if (reason) {
+      line.appendChild(document.createTextNode(' — ' + reason));
+    }
+    return line;
+  }
+
+  function tooltipFor(data, index, rows) {
+    var slot = data.slots[index];
+    var box = node('div', undefined, 'chart-tip');
+    box.appendChild(node('strong', 'Виїзд № ' + slot.seq));
+    box.appendChild(node('div', 'Отримано (за київським часом): ' + slot.received));
+    rows.forEach(function (r) {
+      box.appendChild(r);
+    });
+    return box;
+  }
+
+  // Підказка слота; слот «не дійшла» підказки не має.
+  function tooltipOption(data, rowsFor) {
+    return {
+      trigger: 'axis',
+      confine: true,
+      className: 'chart-tip-box',
+      triggerOn: 'mousemove|click',
+      axisPointer: { type: 'shadow' },
+      formatter: function (params) {
+        var list = Array.isArray(params) ? params : [params];
+        if (!list.length) {
+          return '';
+        }
+        var index = list[0].dataIndex;
+        if (data.slots[index].gap) {
+          return '';
+        }
+        return tooltipFor(data, index, rowsFor(index));
+      },
+    };
+  }
+
+  // Підпис слота «немає даних» разом із причиною вздовж слота (screens.md «Правила показу»).
+  function noDataText(data, seq, value) {
+    var reason = reasonFor(data, seq, value);
+    return reason ? NO_DATA + ' — ' + reason : NO_DATA;
+  }
+
+  // Спільна причина для слота з кількома відсутніми значеннями: однакові підписи → вони;
+  // однаковий код «ровер не передав» → загальне формулювання; інакше причина відсутнього
+  // `fallback` (напр. «обидва борти»), інакше лише «немає даних» — повні причини в підказці й примітках.
+  function slotReason(data, seq, values, fallback) {
+    var found = data.reasons.filter(function (r) {
+      return r.seq === seq && values.indexOf(r.value) !== -1;
+    });
+    if (found.length && found.every(function (r) { return r.label === found[0].label; })) {
+      return found[0].label;
+    }
+    if (found.length && found.every(function (r) { return r.code === 'not_reported'; })) {
+      return NOT_REPORTED;
+    }
+    var other = fallback ? reasonFor(data, seq, fallback) : '';
+    return other;
+  }
+
+  function slotText(reason) {
+    return reason ? NO_DATA + ' — ' + reason : NO_DATA;
+  }
+
+  // ---------- Спільна вісь ----------
+
+  // Слот «не дійшла»: штрихова рамка на всю ширину своєї категорії з підписом уздовж слота.
+  function gapSeries(data) {
+    var indexes = [];
+    data.slots.forEach(function (slot, i) {
+      if (slot.gap) {
+        indexes.push([i]);
+      }
+    });
+    return {
+      type: 'custom',
+      name: 'Сесія не дійшла',
+      silent: true,
+      data: indexes,
+      encode: { x: 0 },
+      renderItem: function (params, api) {
+        var area = params.coordSys;
+        var width = api.size([1, 0])[0];
+        var center = api.coord([api.value(0), 0])[0];
+        return {
+          type: 'group',
+          children: [
+            {
+              type: 'rect',
+              shape: { x: center - width / 2 + 1, y: area.y, width: width - 2, height: area.height },
+              style: { fill: 'none', stroke: token('--chart-gap'), lineDash: [4, 3], lineWidth: 1 },
+            },
+            {
+              type: 'text',
+              x: center,
+              y: area.y + area.height / 2,
+              rotation: Math.PI / 2,
+              style: {
+                text: GAP_LABEL,
+                x: 0,
+                y: 0,
+                align: 'center',
+                verticalAlign: 'middle',
+                fontSize: 12,
+                fill: token('--chart-gap'),
+              },
+            },
+          ],
+        };
+      },
+    };
+  }
+
+  // Числа осі з комою, як у решті інтерфейсу.
+  function axisNumber(value) {
+    return String(Math.round(value * 100) / 100).replace('.', ',');
+  }
+
+  function xAxis(data) {
+    return {
+      type: 'category',
+      data: categories(data),
+      name: AXIS_NAME,
+      nameLocation: 'middle',
+      nameGap: 30,
+      nameTextStyle: { color: token('--color-muted') },
+      axisLabel: { color: token('--color-muted') },
+      axisTick: { alignWithLabel: true },
+    };
+  }
+
+  // Порожня серія: несе лише опорні лінії; значень не має (null, не нуль).
+  function frameSeries(data, markLine) {
+    return {
+      type: 'line',
+      silent: true,
+      symbol: 'none',
+      lineStyle: { width: 0 },
+      data: data.slots.map(function () {
+        return null;
+      }),
+      markLine: markLine,
+    };
+  }
+
+  // Лишається в кожного слота виїзду: підказка спрацьовує й тоді, коли всі значення слота null.
+  function hitSeries(data) {
+    return {
+      type: 'custom',
+      name: '',
+      silent: true,
+      data: data.slots.map(function (slot, i) {
+        return [i, null];
+      }),
+      encode: { x: 0, y: 1 },
+      renderItem: function () {
+        return null;
+      },
+    };
+  }
+
+  function mount(section, name, option) {
+    var element = section.querySelector('[data-chart="' + name + '"]');
+    if (!element) {
+      throw new Error('chart element missing');
+    }
+    element.hidden = false;
+    element.textContent = '';
+    // Намальований графік — зображення з назвою; заповнювач і повідомлення про збій — звичайний текст.
+    element.setAttribute('role', 'img');
+    element.setAttribute('aria-label', element.getAttribute('data-label') || '');
+    var chart = echarts.init(element, null, { renderer: 'canvas' });
+    chart.setOption(option);
+    charts.push({ chart: chart, element: element, section: section });
+  }
+
+  // ---------- Блок «Акумулятор» ----------
+
+  function marker(shape, color, shift) {
+    return function (params, api) {
+      var value = api.value(1);
+      if (value === null || value === undefined) {
+        return null;
+      }
+      var point = api.coord([api.value(0), value]);
+      var x = point[0] + shift;
+      var y = point[1];
+      var style = { fill: color };
+      if (shape === 'circle') {
+        return { type: 'circle', shape: { cx: x, cy: y, r: MARKER_RADIUS }, style: style };
+      }
+      if (shape === 'diamond') {
+        var r = MARKER_RADIUS + 1.5;
+        return {
+          type: 'polygon',
+          shape: { points: [[x, y - r], [x + r, y], [x, y + r], [x - r, y]] },
+          style: style,
+        };
+      }
+      return {
+        type: 'rect',
+        shape: { x: x - MARKER_RADIUS, y: y - MARKER_RADIUS, width: MARKER_RADIUS * 2, height: MARKER_RADIUS * 2 },
+        style: style,
+      };
+    };
+  }
+
+  // Слот виїзду без жодної з трьох напруг: штрихування «немає даних» з причиною.
+  function batteryStates(data) {
+    var rows = [];
+    data.slots.forEach(function (slot, i) {
+      var none = data.series.start[i] === null && data.series.min[i] === null && data.series.end[i] === null;
+      if (!slot.gap && none) {
+        rows.push({ i: i, kind: 'no_data', text: slotText(slotReason(data, slot.seq, ['start', 'min', 'end'])) });
+      }
+    });
+    return rows;
+  }
+
+  // Слот без просадки (немає початкової чи мінімальної напруги): не нуль, а «немає даних».
+  function dropStates(data) {
+    var rows = [];
+    data.slots.forEach(function (slot, i) {
+      if (!slot.gap && data.drop[i] === null) {
+        rows.push({ i: i, kind: 'no_data', text: noDataText(data, slot.seq, 'drop') });
+      }
+    });
+    return rows;
+  }
+
+  function batteryVoltageOption(data) {
+    var c = data.constants;
+    var series = data.series;
+    var colors = {
+      start: token('--chart-start'),
+      min: token('--chart-min'),
+      end: token('--chart-end'),
+    };
+    var span = data.slots.map(function (slot, i) {
+      var known = [series.start[i], series.min[i], series.end[i]].filter(function (v) {
+        return v !== null;
+      });
+      return known.length > 1 ? [i, Math.min.apply(null, known), Math.max.apply(null, known)] : [i, null, null];
+    });
+    var lowest = data.slots.map(function (slot, i) {
+      var known = [series.start[i], series.min[i], series.end[i]].filter(function (v) {
+        return v !== null;
+      });
+      return [i, known.length ? Math.min.apply(null, known) : null, data.end_reason_label[i], known.length ? Math.max.apply(null, known) : null];
+    });
+    function markerSeries(name, field, shape, shift) {
+      return {
+        type: 'custom',
+        name: name,
+        silent: true,
+        itemStyle: { color: colors[field] },
+        data: series[field].map(function (v, i) {
+          return [i, v];
+        }),
+        encode: { x: 0, y: 1 },
+        renderItem: marker(shape, colors[field], shift),
+      };
+    }
+    // Вісь охоплює відсічку, повний заряд і всі значення: маркер нижче 6,0 В лишається в полі.
+    var known = [].concat(series.start, series.min, series.end).filter(function (v) {
+      return v !== null;
+    });
+    var axisMin = Math.min.apply(null, known.concat([c.cutoff_v])) - AXIS_PADDING;
+    var axisMax = Math.max.apply(null, known.concat([c.full_charge_v])) + AXIS_PADDING;
+    // Під найнижчим маркером слота з підписом причини завершення лишається місце для підпису.
+    var labelled = lowest.filter(function (l) { return l[2] && l[1] !== null; });
+    if (labelled.length) {
+      var plotHeight = parseInt(token('--chart-height'), 10) - gridTop() - GRID_BOTTOM - AXIS_LABELS_SPACE;
+      var share = (LABEL_LINES * LABEL_LINE_HEIGHT + MARKER_RADIUS + LABEL_GAP) / plotHeight;
+      var lowestLabelled = Math.min.apply(null, labelled.map(function (l) { return l[1]; }));
+      axisMin = Math.min(axisMin, (lowestLabelled - share * axisMax) / (1 - share));
+    }
+    var line = function (value, text) {
+      return {
+        yAxis: value,
+        label: { formatter: text + ' ' + comma(value, 1) + ' В', position: 'insideEndTop', color: token('--chart-reference') },
+        lineStyle: { type: 'dashed', color: token('--chart-reference') },
+      };
+    };
+    var frame = frameSeries(data, {
+      silent: true,
+      symbol: 'none',
+      data: [line(c.cutoff_v, 'Відсічка'), line(c.full_charge_v, 'Повний заряд')],
+    });
+    return {
+      animation: false,
+      grid: { left: 8, right: 14, top: gridTop(), bottom: GRID_BOTTOM, containLabel: true },
+      legend: {
+        top: 0,
+        data: [
+          { name: 'На початку', icon: 'circle' },
+          { name: 'Мінімум', icon: 'diamond' },
+          { name: 'Наприкінці', icon: 'rect' },
+        ],
+        textStyle: { color: token('--color-text') },
+      },
+      xAxis: xAxis(data),
+      yAxis: {
+        type: 'value',
+        name: 'В',
+        min: axisMin,
+        max: axisMax,
+        axisLabel: { color: token('--color-muted'), formatter: axisNumber },
+      },
+      tooltip: tooltipOption(data, function (i) {
+        var seq = data.slots[i].seq;
+        function volts(value) {
+          return value === null ? null : comma(value, 2) + ' В';
+        }
+        function withCell(value, cell) {
+          return value === null ? null : comma(value, 2) + ' В (' + comma(cell, 2) + ' В на банку)';
+        }
+        var rows = [
+          row('Напруга на початку', withCell(series.start[i], data.per_cell.start[i]), reasonFor(data, seq, 'start')),
+          row('Мінімальна напруга', withCell(series.min[i], data.per_cell.min[i]), reasonFor(data, seq, 'min')),
+          row('Напруга наприкінці', withCell(series.end[i], data.per_cell.end[i]), reasonFor(data, seq, 'end')),
+          row('Просадка', volts(data.drop[i]), reasonFor(data, seq, 'drop')),
+        ];
+        if (data.end_reason_label[i]) {
+          rows.push(row('Причина завершення', data.end_reason_label[i], ''));
+        }
+        return rows;
+      }),
+      series: [
+        frame,
+        gapSeries(data),
+        {
+          type: 'custom',
+          name: 'Відрізок',
+          silent: true,
+          data: span,
+          encode: { x: 0, y: [1, 2] },
+          renderItem: function (params, api) {
+            if (api.value(1) === null || api.value(1) === undefined) {
+              return null;
+            }
+            var from = api.coord([api.value(0), api.value(1)]);
+            var to = api.coord([api.value(0), api.value(2)]);
+            return {
+              type: 'line',
+              shape: { x1: from[0], y1: from[1], x2: to[0], y2: to[1] },
+              style: { stroke: token('--chart-reference'), lineWidth: 1 },
+            };
+          },
+        },
+        markerSeries('На початку', 'start', 'circle', -MARKER_SHIFT),
+        markerSeries('Мінімум', 'min', 'diamond', 0),
+        markerSeries('Наприкінці', 'end', 'rect', MARKER_SHIFT),
+        {
+          type: 'custom',
+          name: 'Причина завершення',
+          silent: true,
+          data: lowest,
+          encode: { x: 0, y: 1 },
+          renderItem: function (params, api) {
+            var label = api.value(2);
+            if (!label || api.value(1) === null) {
+              return null;
+            }
+            var point = api.coord([api.value(0), api.value(1)]);
+            var area = params.coordSys;
+            // Під найнижчим маркером, а коли знизу бракує місця (до осі X) — над найвищим.
+            var below = point[1] + MARKER_RADIUS + LABEL_GAP;
+            var fits = below + LABEL_LINES * LABEL_LINE_HEIGHT <= area.y + area.height;
+            var above = api.coord([api.value(0), api.value(3)])[1] - MARKER_RADIUS - LABEL_GAP;
+            return {
+              type: 'text',
+              style: {
+                text: label,
+                x: point[0],
+                y: fits ? below : above,
+                width: LABEL_WIDTH,
+                overflow: 'break',
+                align: 'center',
+                verticalAlign: fits ? 'top' : 'bottom',
+                fontSize: 11,
+                lineHeight: LABEL_LINE_HEIGHT,
+                fill: token('--chart-min'),
+              },
+            };
+          },
+        },
+        slotStates(batteryStates(data)),
+        hitSeries(data),
+      ],
+    };
+  }
+
+  function batteryDropOption(data) {
+    var bars = data.drop.map(function (value, i) {
+      if (value === null) {
+        return null;
+      }
+      if (data.largest_drop_seq === data.slots[i].seq) {
+        return {
+          value: value,
+          label: { show: true, position: 'top', formatter: 'найбільша\nпросадка', lineHeight: LABEL_LINE_HEIGHT - 2, color: token('--color-text') },
+        };
+      }
+      return value;
+    });
+    var largest = Math.max.apply(null, data.drop.filter(function (v) { return v !== null; }).concat([0]));
+    return {
+      animation: false,
+      grid: { left: 8, right: 14, top: 36, bottom: GRID_BOTTOM, containLabel: true },
+      xAxis: xAxis(data),
+      yAxis: {
+        type: 'value',
+        name: 'В',
+        min: 0,
+        max: largest > 0 ? largest * BAR_HEADROOM : undefined, // місце над найвищим стовпцем для підпису
+        axisLabel: { color: token('--color-muted'), formatter: axisNumber },
+      },
+      tooltip: tooltipOption(data, function (i) {
+        var value = data.drop[i];
+        return [
+          row(
+            'Просадка (початкова мінус мінімальна)',
+            value === null ? null : comma(value, 2) + ' В',
+            reasonFor(data, data.slots[i].seq, 'drop')
+          ),
+        ];
+      }),
+      series: [
+        {
+          type: 'bar',
+          name: 'Просадка',
+          data: bars,
+          barMaxWidth: 28,
+          itemStyle: { color: token('--chart-drop') },
+        },
+        slotStates(dropStates(data)),
+        gapSeries(data),
+        hitSeries(data),
+      ],
+    };
+  }
+
+  function renderBattery(section, data) {
+    mount(section, 'battery-voltage', batteryVoltageOption(data));
+    mount(section, 'battery-drop', batteryDropOption(data));
+  }
+
+  // ---------- Блок «Перешкоди» ----------
+
+  // Штрихування кольору «немає даних»: відрізняється від рамки «утримань не було».
+  function hatch() {
+    var canvas = document.createElement('canvas');
+    canvas.width = 8;
+    canvas.height = 8;
+    var ctx = canvas.getContext('2d');
+    ctx.strokeStyle = token('--color-no-data');
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, 8);
+    ctx.lineTo(8, 0);
+    ctx.stroke();
+    return { image: canvas, repeat: 'repeat' };
+  }
+
+  // Слоти без стовпця: «утримань не було» — тонка суцільна рамка без заливки,
+  // «немає даних» — штрихована заливка з причиною вздовж слота. rows: [{i, kind, text}].
+  function slotStates(rows) {
+    return {
+      type: 'custom',
+      name: 'Стан слота',
+      silent: true,
+      data: rows.map(function (r) {
+        return [r.i, r.kind, r.text];
+      }),
+      encode: { x: 0 },
+      renderItem: function (params, api) {
+        var row = rows[params.dataIndex];
+        var area = params.coordSys;
+        var width = api.size([1, 0])[0];
+        var center = api.coord([api.value(0), 0])[0];
+        var frame = row.kind === 'no_holds';
+        var height = frame ? area.height * NO_HOLDS_HEIGHT : area.height;
+        var top = area.y + area.height - height;
+        // Підпис іде вздовж слота й обрізається по його довжині; у слоті з підписом «без енкодера»
+        // (`row.upper`) він займає верхню половину, а той підпис — нижню. Повна причина — у підказці.
+        var span = row.upper ? height / 2 : height;
+        var rect = {
+          type: 'rect',
+          shape: { x: center - width * SLOT_FILL / 2, y: top, width: width * SLOT_FILL, height: height },
+          style: frame
+            ? { fill: 'none', stroke: token('--chart-reference'), lineWidth: 1 }
+            : { fill: hatch(), stroke: token('--color-no-data'), lineWidth: 1 },
+        };
+        var text = {
+          type: 'text',
+          x: center,
+          y: top + span / 2,
+          rotation: Math.PI / 2,
+          style: {
+            text: row.text,
+            x: 0,
+            y: 0,
+            width: span - 8,
+            overflow: 'truncate',
+            align: 'center',
+            verticalAlign: 'middle',
+            fontSize: 11,
+            fill: frame ? token('--chart-reference') : token('--color-no-data'),
+            fontStyle: frame ? 'normal' : 'italic',
+          },
+        };
+        return { type: 'group', children: [rect, text] };
+      },
+    };
+  }
+
+  function obstaclesTooltip(data) {
+    return tooltipOption(data, function (i) {
+      var seq = data.slots[i].seq;
+      var distance = data.distance_mm[i];
+      var distanceText = null;
+      if (distance !== null) {
+        distanceText = distance + ' мм';
+      } else if (data.no_holds[i]) {
+        distanceText = 'утримань не було';
+      }
+      var sensorText = null;
+      if (data.sensor[i] !== null) {
+        // Невідомий датчик: сире значення лише як текст підказки (textContent у `row`).
+        sensorText = data.sensor_raw[i] !== null ? data.sensor[i] + ' (' + data.sensor_raw[i] + ')' : data.sensor[i];
+      }
+      var holds = data.holds_count[i];
+      var rows = [
+        row('Утримань', holds === null ? null : String(holds), ''),
+        row('Найменша відстань', distanceText, reasonFor(data, seq, 'distance')),
+      ];
+      if (sensorText !== null) {
+        rows.push(row('Датчик', sensorText, ''));
+      }
+      rows.push(row('Захист вимкнено', data.control_off_text[i], reasonFor(data, seq, 'control_off')));
+      rows.push(row('Тривалість виїзду', data.duration_text[i], ''));
+      return rows;
+    });
+  }
+
+  function obstaclesDistanceOption(data) {
+    var threshold = data.constants.obstacle_threshold_mm;
+    var rows = [];
+    var top = threshold;
+    var bars = data.distance_mm.map(function (value, i) {
+      if (data.slots[i].gap) {
+        return null;
+      }
+      if (value !== null) {
+        top = Math.max(top, value);
+        return {
+          value: value,
+          label: { show: true, position: 'top', formatter: data.sensor[i], color: token('--color-text'), fontSize: 11 },
+        };
+      }
+      if (data.no_holds[i]) {
+        rows.push({ i: i, kind: 'no_holds', text: 'утримань не було' });
+      } else {
+        rows.push({ i: i, kind: 'no_data', text: noDataText(data, data.slots[i].seq, 'distance') });
+      }
+      return null;
+    });
+    return {
+      animation: false,
+      grid: { left: 8, right: 14, top: 36, bottom: GRID_BOTTOM, containLabel: true },
+      xAxis: xAxis(data),
+      yAxis: {
+        type: 'value',
+        name: 'мм',
+        min: 0,
+        max: Math.ceil(top * BAR_HEADROOM),
+        axisLabel: { color: token('--color-muted'), formatter: axisNumber },
+      },
+      tooltip: obstaclesTooltip(data),
+      series: [
+        {
+          type: 'bar',
+          name: 'Найменша відстань',
+          data: bars,
+          barMaxWidth: 28,
+          itemStyle: { color: token('--chart-distance') },
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            data: [
+              {
+                yAxis: threshold,
+                label: { formatter: 'Поріг ' + threshold + ' мм', position: 'insideEndTop', color: token('--chart-reference') },
+                lineStyle: { type: 'dashed', color: token('--chart-reference') },
+              },
+            ],
+          },
+        },
+        slotStates(rows),
+        gapSeries(data),
+        hitSeries(data),
+      ],
+    };
+  }
+
+  function obstaclesControlOffOption(data) {
+    var rows = [];
+    var bars = data.control_off_s.map(function (value, i) {
+      if (data.slots[i].gap) {
+        return null;
+      }
+      if (value === null) {
+        rows.push({ i: i, kind: 'no_data', text: noDataText(data, data.slots[i].seq, 'control_off') });
+        return null;
+      }
+      return {
+        value: value,
+        label: { show: true, position: 'top', formatter: comma(value, value === 0 ? 0 : 1) + ' с', color: token('--color-text'), fontSize: 11 },
+      };
+    });
+    return {
+      animation: false,
+      grid: { left: 8, right: 14, top: 36, bottom: GRID_BOTTOM, containLabel: true },
+      xAxis: xAxis(data),
+      yAxis: { type: 'value', name: 'с', min: 0, axisLabel: { color: token('--color-muted'), formatter: axisNumber } },
+      tooltip: obstaclesTooltip(data),
+      series: [
+        { type: 'bar', name: 'Захист вимкнено', data: bars, barMaxWidth: 28, itemStyle: { color: token('--chart-control-off') } },
+        slotStates(rows),
+        gapSeries(data),
+        hitSeries(data),
+      ],
+    };
+  }
+
+  function renderObstacles(section, data) {
+    mount(section, 'obstacles-distance', obstaclesDistanceOption(data));
+    mount(section, 'obstacles-control-off', obstaclesControlOffOption(data));
+  }
+
+  // ---------- Блок «Рух і борти» ----------
+
+  var BAR_WIDTH = 14;
+  // Короткі підписи напрямку на стовпці; повний текст («лівий борт швидший») — у підказці.
+  var SHORT_DIRECTION = { left: 'лівий\nшвидший', right: 'правий\nшвидший', equal: 'однаково' };
+
+  // Швидкість борту за SCR-05: «50,8 об/хв (0,117 м/с)»; null лишається null.
+  function speedLabel(mps, rpm) {
+    return mps === null ? null : comma(rpm, 1) + ' об/хв (' + comma(mps, 3) + ' м/с)';
+  }
+
+  function motionTooltip(data) {
+    return tooltipOption(data, function (i) {
+      var seq = data.slots[i].seq;
+      var l = data.left[i];
+      var r = data.right[i];
+      var imb = data.imbalance[i];
+      var rows = [
+        row('Лівий борт, середня', speedLabel(l.avg_mps, l.avg_rpm), reasonFor(data, seq, 'left_avg')),
+        row('Лівий борт, пікова', speedLabel(l.peak_mps, l.peak_rpm), reasonFor(data, seq, 'left_peak')),
+        row('Правий борт, середня', speedLabel(r.avg_mps, r.avg_rpm), reasonFor(data, seq, 'right_avg')),
+        row('Правий борт, пікова', speedLabel(r.peak_mps, r.peak_rpm), reasonFor(data, seq, 'right_peak')),
+        row(
+          'Різниця бортів',
+          imb.pct === null ? null : comma(imb.pct, 1) + ' %, ' + imb.faster_label,
+          reasonFor(data, seq, 'imbalance')
+        ),
+      ];
+      if (data.no_encoder[i]) {
+        rows.push(row('Енкодера не було', data.no_encoder[i].replace('без енкодера: ', ''), ''));
+      }
+      return rows;
+    });
+  }
+
+  function peakSeries(name, data, side, shift, color) {
+    return {
+      type: 'custom',
+      name: name,
+      silent: true,
+      itemStyle: { color: color },
+      data: data.slots.map(function (slot, i) {
+        return [i, slot.gap ? null : data[side][i].peak_mps];
+      }),
+      encode: { x: 0, y: 1 },
+      renderItem: function (params, api) {
+        var value = api.value(1);
+        if (value === null || value === undefined) {
+          return null;
+        }
+        var point = api.coord([api.value(0), value]);
+        var x = point[0] + shift;
+        var y = point[1] - 3;
+        return {
+          type: 'polygon',
+          shape: { points: [[x, y], [x - 5, y - 9], [x + 5, y - 9]] },
+          style: { fill: color },
+        };
+      },
+    };
+  }
+
+  // Підпис «без енкодера: лівий борт» біля основи слота; відсутні стовпці цього борту не малюються.
+  function encoderCaptions(data) {
+    var rows = [];
+    data.no_encoder.forEach(function (text, i) {
+      if (text) {
+        rows.push([i, text]);
+      }
+    });
+    return {
+      type: 'custom',
+      name: 'Без енкодера',
+      silent: true,
+      data: rows,
+      encode: { x: 0 },
+      renderItem: function (params, api) {
+        var area = params.coordSys;
+        var center = api.coord([api.value(0), 0])[0];
+        // Нижня половина слота; «без енкодера:» і «обидва борти» — двома рядками, щоб вміститися.
+        return {
+          type: 'text',
+          x: center,
+          y: area.y + area.height * 0.75,
+          rotation: Math.PI / 2,
+          style: {
+            text: rows[params.dataIndex][1].replace(': ', ':\n'),
+            x: 0,
+            y: 0,
+            width: area.height / 2 - 8,
+            overflow: 'truncate',
+            align: 'center',
+            verticalAlign: 'middle',
+            fontSize: 11,
+            lineHeight: LABEL_LINE_HEIGHT - 2,
+            fill: token('--chart-reference'),
+          },
+        };
+      },
+    };
+  }
+
+  function motionSpeedOption(data) {
+    var states = [];
+    function bar(side) {
+      return data.slots.map(function (slot, i) {
+        return slot.gap ? null : data[side][i].avg_mps;
+      });
+    }
+    data.slots.forEach(function (slot, i) {
+      if (slot.gap) {
+        return;
+      }
+      var l = data.left[i];
+      var r = data.right[i];
+      if ([l.avg_mps, l.peak_mps, r.avg_mps, r.peak_mps].every(function (v) { return v === null; })) {
+        var reason = slotReason(data, slot.seq, ['left_avg', 'left_peak', 'right_avg', 'right_peak'], 'imbalance');
+        states.push({ i: i, kind: 'no_data', text: slotText(reason), upper: !!data.no_encoder[i] });
+      }
+    });
+    var leftColor = token('--chart-left');
+    var rightColor = token('--chart-right');
+    return {
+      animation: false,
+      grid: { left: 8, right: 14, top: gridTop(), bottom: GRID_BOTTOM, containLabel: true },
+      legend: {
+        top: 0,
+        data: [
+          { name: 'Лівий борт', icon: 'rect' },
+          { name: 'Правий борт', icon: 'rect' },
+          { name: 'Пік лівого борту', icon: 'triangle' },
+          { name: 'Пік правого борту', icon: 'triangle' },
+        ],
+        textStyle: { color: token('--color-text') },
+      },
+      xAxis: xAxis(data),
+      yAxis: {
+        type: 'value',
+        name: 'м/с',
+        min: 0,
+        axisLabel: { color: token('--color-muted'), formatter: axisNumber },
+      },
+      tooltip: motionTooltip(data),
+      series: [
+        { type: 'bar', name: 'Лівий борт', data: bar('left'), barWidth: BAR_WIDTH, barGap: '0%', itemStyle: { color: leftColor } },
+        {
+          type: 'bar',
+          name: 'Правий борт',
+          data: bar('right'),
+          barWidth: BAR_WIDTH,
+          barGap: '0%',
+          itemStyle: {
+            color: rightColor,
+            decal: { symbol: 'rect', dashArrayX: [1, 0], dashArrayY: [2, 3], rotation: Math.PI / 4, color: token('--chart-decal') },
+          },
+        },
+        peakSeries('Пік лівого борту', data, 'left', -BAR_WIDTH / 2, leftColor),
+        peakSeries('Пік правого борту', data, 'right', BAR_WIDTH / 2, rightColor),
+        slotStates(states),
+        encoderCaptions(data),
+        gapSeries(data),
+        hitSeries(data),
+      ],
+    };
+  }
+
+  function motionImbalanceOption(data) {
+    var states = [];
+    var bars = data.imbalance.map(function (imb, i) {
+      if (data.slots[i].gap) {
+        return null;
+      }
+      if (imb.pct === null) {
+        states.push({ i: i, kind: 'no_data', text: noDataText(data, data.slots[i].seq, 'imbalance'), upper: !!data.no_encoder[i] });
+        return null;
+      }
+      return {
+        value: imb.pct,
+        label: {
+          show: true,
+          position: imb.pct < 0 ? 'bottom' : 'top',
+          formatter: comma(imb.pct, 1) + ' %\n' + SHORT_DIRECTION[imb.faster],
+          color: token('--color-text'),
+          fontSize: 10,
+          lineHeight: LABEL_LINE_HEIGHT - 2,
+        },
+      };
+    });
+    return {
+      animation: false,
+      grid: { left: 8, right: 14, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: true },
+      xAxis: xAxis(data),
+      yAxis: {
+        type: 'value',
+        name: '% (вгору — лівий швидший)',
+        nameTextStyle: { align: 'left' },
+        boundaryGap: ['30%', '30%'],
+        axisLabel: { color: token('--color-muted'), formatter: axisNumber },
+      },
+      tooltip: motionTooltip(data),
+      series: [
+        { type: 'bar', name: 'Різниця бортів', data: bars, barMaxWidth: 28, itemStyle: { color: token('--chart-imbalance') } },
+        slotStates(states),
+        gapSeries(data),
+        hitSeries(data),
+      ],
+    };
+  }
+
+  function renderMotion(section, data) {
+    mount(section, 'motion-speed', motionSpeedOption(data));
+    mount(section, 'motion-imbalance', motionImbalanceOption(data));
+  }
+
+  // ---------- Запуск: кожен блок ізольовано ----------
+
+  var RENDERERS = {
+    battery: renderBattery,
+    obstacles: renderObstacles,
+    motion: renderMotion,
+  };
+
+  function unavailable(section) {
+    // Частково змонтований блок: живі екземпляри ECharts цієї секції знімаємо до повідомлення.
+    charts = charts.filter(function (c) {
+      if (c.section !== section) {
+        return true;
+      }
+      c.chart.dispose();
+      return false;
+    });
+    var elements = section.querySelectorAll('.chart');
+    for (var i = 0; i < elements.length; i++) {
+      elements[i].hidden = false;
+      elements[i].removeAttribute('aria-label');
+      elements[i].setAttribute('role', 'status');
+      elements[i].textContent = UNAVAILABLE;
+    }
+  }
+
+  function startBlock(section) {
+    try {
+      var key = section.getAttribute('data-chart-block');
+      if (typeof echarts === 'undefined' || !RENDERERS[key]) {
+        throw new Error('charts unavailable');
+      }
+      var data = JSON.parse(document.getElementById('chart-data-' + key).textContent);
+      RENDERERS[key](section, data);
+    } catch (error) {
+      unavailable(section);
+    }
+  }
+
+  function start() {
+    var sections = document.querySelectorAll('[data-chart-block][data-state="ok"]');
+    for (var i = 0; i < sections.length; i++) {
+      startBlock(sections[i]);
+    }
+    window.addEventListener('resize', function () {
+      charts.forEach(function (c) {
+        c.chart.resize();
+      });
+    });
+    // Дотик чи клік поза графіком ховає підказку (AC-18).
+    function hideOutside(event) {
+      charts.forEach(function (c) {
+        if (!c.element.contains(event.target)) {
+          c.chart.dispatchAction({ type: 'hideTip' });
+        }
+      });
+    }
+    document.addEventListener('touchstart', hideOutside, { passive: true });
+    document.addEventListener('click', hideOutside);
+  }
+
+  start();
+})();

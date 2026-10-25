@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% from '_macros.html' import state_message %}
+{% from '_macros.html' import state_message, chart_block %}
 {% block content %}
 <h1>Телеметрія ровера</h1>
 {% include '_description.html' %}
@@ -7,10 +7,19 @@
 {{ state_message('Дані тимчасово недоступні. Спробуйте оновити сторінку трохи пізніше.') }}
 {% else %}
 {% include '_summary.html' %}
+{% for block in blocks|default([]) %}
+{% call chart_block(block.key, block.title, block.state, block.data_json, block.description) %}
+{{ block.content }}
+{% endcall %}
+{% endfor %}
 {% if state == 'empty' %}
 {{ state_message('Виїздів ще немає.') }}
 {% else %}
 {% include '_sessions.html' %}
 {% endif %}
+{% endif %}
+{% if blocks|default([])|selectattr('state', 'equalto', 'ok')|list %}
+<script src="/static/echarts.min.js" defer></script>
+<script src="/static/charts.js" defer></script>
 {% endif %}
 {% endblock %}

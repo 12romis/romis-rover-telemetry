@@ -10,7 +10,12 @@ from rover_telemetry.domain.dashboard import GapNumber, StoredSession
 # Колонки `sessions` для `StoredSession`; сирий звіт і `rejected` сторінка не читає (SAD §1).
 _SESSION_COLUMNS = (
     "mac, seq, received_at, duration_ms, end_reason, voltage_start_mv, voltage_end_mv, "
-    "voltage_min_mv, holds_count, moving_ms, distance_cm, fw_version, payload"
+    "voltage_min_mv, holds_count, moving_ms, distance_cm, fw_version, payload, "
+    # Колонки графіків — у кінці, у порядку полів `StoredSession` (позиційне створення).
+    "holds_min_mm, holds_min_sensor, holds_left_front, holds_front, holds_right_front, "
+    "holds_rear, tof_control_off_ms, speed_left_avg_rpm, speed_left_peak_rpm, "
+    "speed_right_avg_rpm, speed_right_peak_rpm, speed_imbalance_pct, encoders_left, "
+    "encoders_right"
 )
 _SELECT_SESSIONS = f"SELECT {_SESSION_COLUMNS} FROM sessions"
 _SELECT_GAPS = "SELECT mac, seq FROM session_gaps"

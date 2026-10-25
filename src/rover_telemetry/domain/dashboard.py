@@ -28,6 +28,22 @@ class StoredSession:
     distance_cm: int | None = None
     fw_version: str | None = None
     payload: dict[str, Any] = field(default_factory=dict)
+    # Колонки для графіків (feature dashboard-charts): лише в кінці й зі значенням за замовчуванням,
+    # щоб позиційне `StoredSession(*row)` у `db/reading.py` і наявні виклики не зсувалися.
+    holds_min_mm: int | None = None
+    holds_min_sensor: str | None = None
+    holds_left_front: int | None = None
+    holds_front: int | None = None
+    holds_right_front: int | None = None
+    holds_rear: int | None = None
+    tof_control_off_ms: int | None = None
+    speed_left_avg_rpm: float | None = None
+    speed_left_peak_rpm: float | None = None
+    speed_right_avg_rpm: float | None = None
+    speed_right_peak_rpm: float | None = None
+    speed_imbalance_pct: float | None = None
+    encoders_left: bool | None = None
+    encoders_right: bool | None = None
 
 
 @dataclass(frozen=True)

@@ -6,7 +6,7 @@
 import json
 import re
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -14,43 +14,13 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
-from rover_telemetry.config import WebSettings
 from rover_telemetry.db.sessions import connect, insert_session
 from rover_telemetry.domain.report import ParsedSession, parse_report
-from rover_telemetry.web.app import app, get_settings
 
 pytestmark = pytest.mark.integration
 
 MAC = "288485922c94"
-LATENCY_LIMIT_S = 1.0  # spec §6: p95 ≤ 1 с при ≤ 1000 виїздів (припущення, підтверджує власник)
-
-
-@pytest.fixture
-def client(viewer_url: str) -> Iterator[TestClient]:
-    settings = WebSettings(
-        database_url=viewer_url, db_connect_timeout_s=3, db_statement_timeout_s=5
-    )
-    app.dependency_overrides[get_settings] = lambda: settings
-    with TestClient(app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def store(ingest_url: str) -> Callable[..., bool]:
-    """Зберігає звіт ролью `ingest`; повертає `False` для дубля `(mac, seq)`."""
-
-    def put(report: dict[str, Any], seq: int | None = None, minute: int = 0) -> bool:
-        doc = {**report, **({"seq": seq} if seq is not None else {})}
-        received = datetime(2026, 10, 23, 12, minute % 60, tzinfo=UTC)
-        parsed = parse_report(f"rover/{MAC}/session", json.dumps(doc).encode(), received)
-        assert isinstance(parsed, ParsedSession)
-        with connect(ingest_url, timeout_s=5) as conn:
-            created = insert_session(conn, parsed)
-            conn.commit()
-        return created
-
-    return put
+LATENCY_LIMIT_S = 3.0  # p95 ≤ 3 с при ≤ 1000 виїздів (рішення власника 2026-10-25, review F1)
 
 
 def cards(html: str) -> dict[str, str]:
@@ -123,7 +93,8 @@ def test_null_never_rendered_as_number(client: TestClient, store: Callable[..., 
     assert summary["Пробіг"] == "немає даних"
     assert summary["Час руху"] == "немає даних"
     assert summary["Утримань перед перешкодою"] == "немає даних"
-    assert "0 м" not in html
+    # окреме «0 м» (не частина «190 мм» в описах блоків): пробігу немає, а не нуль
+    assert re.search(r"(?<![\d,])0 м(?!м)", html) is None
 
 
 def test_no_external_hosts_or_scripts_and_mobile_ready(
@@ -133,7 +104,10 @@ def test_no_external_hosts_or_scripts_and_mobile_ready(
     store(report_seq26)
     html = client.get("/").text
     css = client.get("/static/app.css").text
-    assert "<script" not in html
+    # скрипти — лише блоки даних і власні файли `/static/` (CSP `default-src 'self'`)
+    assert html.count("<script") == html.count('<script type="application/json"') + html.count(
+        '<script src="/static/'
+    )
     assert not re.findall(r'(?:src|href)="https?://', html)
     assert not re.findall(r"@import|url\(\s*['\"]?https?://", css)
     assert 'name="viewport"' in html
@@ -143,7 +117,7 @@ def test_no_external_hosts_or_scripts_and_mobile_ready(
 def test_latency_p95_with_1000_sessions(
     client: TestClient, store: Callable[..., bool], report_seq27: dict[str, Any], ingest_url: str
 ) -> None:
-    """NFR: p95 формування сторінки ≤ 1 с при 1000 виїздів зі звітами."""
+    """NFR: p95 формування сторінки ≤ 3 с при 1000 виїздів зі звітами."""
     with connect(ingest_url, timeout_s=5) as conn:
         for seq in range(1, 1001):
             raw = json.dumps({**report_seq27, "seq": seq}).encode()
