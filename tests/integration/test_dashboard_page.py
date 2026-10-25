@@ -20,7 +20,7 @@ from rover_telemetry.domain.report import ParsedSession, parse_report
 pytestmark = pytest.mark.integration
 
 MAC = "288485922c94"
-LATENCY_LIMIT_S = 1.0  # spec §6: p95 ≤ 1 с при ≤ 1000 виїздів (припущення, підтверджує власник)
+LATENCY_LIMIT_S = 3.0  # p95 ≤ 3 с при ≤ 1000 виїздів (рішення власника 2026-10-25, review F1)
 
 
 def cards(html: str) -> dict[str, str]:
@@ -117,7 +117,7 @@ def test_no_external_hosts_or_scripts_and_mobile_ready(
 def test_latency_p95_with_1000_sessions(
     client: TestClient, store: Callable[..., bool], report_seq27: dict[str, Any], ingest_url: str
 ) -> None:
-    """NFR: p95 формування сторінки ≤ 1 с при 1000 виїздів зі звітами."""
+    """NFR: p95 формування сторінки ≤ 3 с при 1000 виїздів зі звітами."""
     with connect(ingest_url, timeout_s=5) as conn:
         for seq in range(1, 1001):
             raw = json.dumps({**report_seq27, "seq": seq}).encode()

@@ -1,4 +1,4 @@
-"""Затримка побудови блоків на 1000 виїздів (NFR): `read_snapshot` + `render_blocks`, p95 ≤ 1 с."""
+"""Затримка побудови блоків на 1000 виїздів (NFR): `read_snapshot` + `render_blocks`, p95 ≤ 3 с."""
 
 import json
 import time
@@ -17,7 +17,7 @@ from rover_telemetry.web.chart_blocks import render_blocks
 pytestmark = pytest.mark.integration
 
 MAC = "288485922c94"
-LIMIT_S = 1.0  # spec §6: p95 ≤ 1 с при ≤ 1000 виїздів
+LIMIT_S = 3.0  # spec §6: p95 ≤ 3 с при ≤ 1000 виїздів (рішення власника 2026-10-25)
 RUNS = 20
 
 

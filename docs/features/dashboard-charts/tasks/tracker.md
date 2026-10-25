@@ -24,7 +24,7 @@
 | T14 | Додати в charts.js графіки блока «Перешкоди»: найменша відстань на тлі порога 190 мм і секунди вимкненого захисту | ui | 12romis | M | T11, T13 | done | COMMIT |
 | T15 | Додати в charts.js графіки блока «Рух і борти»: швидкість бортів у м/с із піками та різниця бортів із причинами відсутності | ui | 12romis | M | T12, T13 | done | COMMIT |
 | T16 | Додати наскрізні браузерні тести сторінки: 360 px, дотик, 0 сторонніх запитів, CSP, збій кожного блока, XSS-фікстура | tests | 12romis | M | T13, T14 | done | COMMIT |
-| T17 | Додати інтеграційні тести сторінки на реальному Postgres: свіжість, дубль і відхилене, порожнє сховище, лише читання, затримка на 1000 виїздів | tests | 12romis | M | T2, T9, T10, T11 | blocked | GATE — latency p95 1.11 s > 1 s limit on loaded 1-CPU host (baseline page test 2.4 s) |
+| T17 | Додати інтеграційні тести сторінки на реальному Postgres: свіжість, дубль і відхилене, порожнє сховище, лише читання, затримка на 1000 виїздів | tests | 12romis | M | T2, T9, T10, T11 | done | COMMIT |
 | T18 | Review F8: у domain/charts.py `NO_STRAIGHT` лише коли moving_ms>0 і обидва encoders True, інакше `NOT_REPORTED` (ADR-0003) | domain | 12romis | S | — | done | COMMIT |
 | T19 | Review F7+F4: рендер вмісту блока й JSON під try у render_blocks; holds_count і тривалість виїзду в даних блока «Перешкоди» (формат format_duration_ms) | ports | 12romis | S | T18 | done | COMMIT |
 | T20 | Review F10+F14: видалити мертві форматери з дубльованими константами; прибрати тавтологічний статичний тест JS, прихований імпорт і type: ignore/noqa без обґрунтування | ui | 12romis | S | — | done | COMMIT |

@@ -376,7 +376,7 @@
         "tests/integration/test_charts_latency.py"
       ],
       "file": "docs/features/dashboard-charts/tasks/t17-tests-integration-page.md",
-      "status": "blocked"
+      "status": "done"
     },
     {
       "id": "T18",
