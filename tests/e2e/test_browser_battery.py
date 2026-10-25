@@ -172,7 +172,7 @@ def test_largest_drop_and_end_reason_are_labelled(
     drop = option_of(page, "battery-drop")["series"][0]["data"]
     labelled = [i for i, d in enumerate(drop) if isinstance(d, dict) and d["label"]["show"]]
     assert labelled == [3]  # слот 39: просадка 1,4 В — найбільша
-    assert drop[3]["label"]["formatter"] == "найбільша просадка"
+    assert drop[3]["label"]["formatter"] == "найбільша\nпросадка"
     reasons = [
         row[2]
         for s in option_of(page, "battery-voltage")["series"]
@@ -222,7 +222,7 @@ def test_tooltip_marks_missing_value_with_italic_no_data_and_reason(
     tip.wait_for()
 
     text = tip.inner_text()
-    assert "Мінімальна напруга — немає даних (ровер не передав: мінімальна напруга)" in text
+    assert "Мінімальна напруга — немає даних — ровер не передав: мінімальна напруга" in text
     assert "Просадка — немає даних" in text
     assert tip.locator("em").first.inner_text() == "немає даних"
 
@@ -331,3 +331,21 @@ def test_slot_without_any_voltage_is_hatched_with_a_reason_on_both_charts(
         states = next(s for s in option_of(page, name)["series"] if s.get("name") == "Стан слота")
         assert [row[:2] for row in states["data"]] == [[1, "no_data"]], name
         assert states["data"][0][2].startswith("немає даних — ровер не передав"), name
+
+
+def test_drop_chart_marks_a_slot_with_unknown_drop_as_no_data(
+    browser: Any, base_url: str, serve_snapshot: Callable[[Snapshot], None]
+) -> None:
+    """Review G3, AC-03: початкова напруга є, мінімальної немає — просадка «немає даних»."""
+    serve_snapshot(snapshot())
+    page, _ = open_page(browser, base_url, viewport=PHONE)
+
+    drop = next(
+        s for s in option_of(page, "battery-drop")["series"] if s.get("name") == "Стан слота"
+    )
+    assert [row[:2] for row in drop["data"]] == [[2, "no_data"]]  # слот 38
+    assert drop["data"][0][2].startswith("немає даних — ровер не передав")
+    voltage = next(
+        s for s in option_of(page, "battery-voltage")["series"] if s.get("name") == "Стан слота"
+    )
+    assert voltage["data"] == []  # на графіку напруги слот 38 має маркери: штрихування не потрібне

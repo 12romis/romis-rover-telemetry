@@ -19,7 +19,6 @@ REQUIRED = {
     "--chart-control-off",
     "--chart-left",
     "--chart-right",
-    "--chart-peak",
     "--chart-imbalance",
     "--chart-reference",
     "--chart-gap",

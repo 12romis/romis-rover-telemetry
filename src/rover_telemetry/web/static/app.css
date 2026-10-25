@@ -16,10 +16,10 @@
   --chart-control-off: #8a4b00;
   --chart-left: #1f5fbf;
   --chart-right: #a8431c;
-  --chart-peak: #3d4650;
   --chart-imbalance: #6b3fa0;
   --chart-reference: #566170;
   --chart-gap: #566170; /* рамка слота «сесія не дійшла» */
+  --chart-decal: rgba(255, 255, 255, 0.7); /* штрихування стовпців правого борту */
   --chart-height: 280px;
   --space-1: 4px;
   --space-2: 8px;

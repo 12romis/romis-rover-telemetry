@@ -32,3 +32,46 @@ def watch_page(page: Any) -> Watch:
     page.on("pageerror", lambda e: watch.console_errors.append(str(e)))
     page.on("request", lambda r: watch.requests.append(r.url))
     return watch
+
+
+# Рамки всіх текстових рядків графіка в координатах полотна (з урахуванням повороту).
+_TEXT_BOXES_JS = """(name) => {
+  const chart = echarts.getInstanceByDom(document.querySelector(`[data-chart="${name}"]`));
+  const boxes = [];
+  for (const el of chart.getZr().storage.getDisplayList(true)) {
+    if (el.type !== 'tspan' || !el.style.text || !el.style.text.trim()) continue;
+    const r = el.getBoundingRect();
+    const m = el.getComputedTransform() || [1, 0, 0, 1, 0, 0];
+    const corners = [[r.x, r.y], [r.x + r.width, r.y], [r.x, r.y + r.height],
+      [r.x + r.width, r.y + r.height]];
+    const pts = corners
+      .map(([x, y]) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]);
+    const xs = pts.map(p => p[0]);
+    const ys = pts.map(p => p[1]);
+    boxes.push([el.style.text, Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
+  }
+  return {width: chart.getWidth(), height: chart.getHeight(), boxes};
+}"""
+
+TOLERANCE_PX = 1.0  # сусідні рядки одного підпису торкаються краями; це не перекриття
+
+
+def text_problems(page: Any, name: str) -> list[str]:
+    """Підписи графіка, що виходять за полотно або перекривають один одного (AC-18)."""
+    data = page.evaluate(_TEXT_BOXES_JS, name)
+    boxes = data["boxes"]
+    problems = [
+        f"поза полотном: {text!r}"
+        for text, x1, y1, x2, y2 in boxes
+        if x1 < -TOLERANCE_PX
+        or y1 < -TOLERANCE_PX
+        or x2 > data["width"] + TOLERANCE_PX
+        or y2 > data["height"] + TOLERANCE_PX
+    ]
+    for i, (ta, ax1, ay1, ax2, ay2) in enumerate(boxes):
+        for tb, bx1, by1, bx2, by2 in boxes[i + 1 :]:
+            overlap_x = min(ax2, bx2) - max(ax1, bx1)
+            overlap_y = min(ay2, by2) - max(ay1, by1)
+            if overlap_x > TOLERANCE_PX and overlap_y > TOLERANCE_PX:
+                problems.append(f"перекриття: {ta!r} і {tb!r}")
+    return problems

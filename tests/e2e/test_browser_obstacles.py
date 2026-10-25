@@ -192,7 +192,7 @@ def test_tooltip_no_holds_and_not_reported_are_different(
     tap_slot(page, "obstacles-distance", "39")
     page.get_by_text("Виїзд № 39").first.wait_for()
     missing = page.locator(".chart-tip").first.inner_text()
-    assert "Найменша відстань — немає даних (ровер не передав: відстань до перешкоди)" in missing
+    assert "Найменша відстань — немає даних — ровер не передав: відстань до перешкоди" in missing
     assert "Захист вимкнено — 0 с" in missing
 
 

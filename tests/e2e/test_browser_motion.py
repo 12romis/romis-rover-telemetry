@@ -182,10 +182,10 @@ def test_tooltip_has_both_sides_in_mps_and_rpm_and_imbalance(
     tip.wait_for()
     text = tip.inner_text()
     assert "Виїзд № 36" in text and "Отримано (за київським часом): 24.10.2026 13:13" in text
-    assert "Лівий борт, середня — 0,117 м/с (50,8 об/хв)" in text
-    assert "Лівий борт, пікова — 0,419 м/с (181,9 об/хв)" in text
-    assert "Правий борт, середня — 0,104 м/с (45,1 об/хв)" in text
-    assert "Різниця бортів — 1,7 % (лівий борт швидший)" in text
+    assert "Лівий борт, середня — 50,8 об/хв (0,117 м/с)" in text
+    assert "Лівий борт, пікова — 181,9 об/хв (0,419 м/с)" in text
+    assert "Правий борт, середня — 45,1 об/хв (0,104 м/с)" in text
+    assert "Різниця бортів — 1,7 %, лівий борт швидший" in text
     watch.assert_clean(base_url)
 
 
@@ -198,21 +198,21 @@ def test_tooltip_reasons_do_not_mix(
     tap_slot(page, "motion-speed", "37")
     page.get_by_text("Виїзд № 37").first.wait_for()
     assert (
-        "Лівий борт, середня — немає даних (ровер не їхав)"
+        "Лівий борт, середня — немає даних — ровер не їхав"
         in page.locator(".chart-tip").first.inner_text()
     )
 
     tap_slot(page, "motion-speed", "38")
     page.get_by_text("Виїзд № 38").first.wait_for()
     text = page.locator(".chart-tip").first.inner_text()
-    assert "Лівий борт, середня — 0,117 м/с" in text
-    assert "Різниця бортів — немає даних (прямої ділянки не було)" in text
+    assert "Лівий борт, середня — 50,8 об/хв" in text
+    assert "Різниця бортів — немає даних — прямої ділянки не було" in text
 
     tap_slot(page, "motion-speed", "39")
     page.get_by_text("Виїзд № 39").first.wait_for()
     text = page.locator(".chart-tip").first.inner_text()
-    assert "Лівий борт, середня — немає даних (на борту не було енкодера (лівий борт))" in text
-    assert "Правий борт, середня — 0,104 м/с" in text
+    assert "Лівий борт, середня — немає даних — на борту не було енкодера (лівий борт)" in text
+    assert "Правий борт, середня — 45,1 об/хв" in text
     assert "Енкодера не було — лівий борт" in text
 
 
@@ -241,3 +241,28 @@ def test_slot_state_text_names_the_reason_along_the_slot(
     texts = {row[0]: row[2] for row in imb["data"]}
     assert texts[1] == "немає даних — ровер не їхав"
     assert texts[2] == "немає даних — прямої ділянки не було"
+
+
+def test_slot_without_both_encoders_names_both_sides_not_one(
+    browser: Any, base_url: str, serve_snapshot: Callable[[Snapshot], None]
+) -> None:
+    """Review G1, AC-12, AC-13: за двох відсутніх енкодерів слот не називає лише лівий борт."""
+    none = {
+        "speed_left_avg_rpm": None,
+        "speed_left_peak_rpm": None,
+        "speed_right_avg_rpm": None,
+        "speed_right_peak_rpm": None,
+        "speed_imbalance_pct": None,
+    }
+    serve_snapshot(
+        Snapshot(
+            [session(37, **{**FULL, **none, "encoders_left": False, "encoders_right": False})],
+            [],
+        )
+    )
+    page, _ = open_page(browser, base_url, viewport=PHONE)
+
+    speed = next(s for s in series_of(page, "motion-speed") if s.get("name") == "Стан слота")
+    assert speed["data"][0][2] == "немає даних — на борту не було енкодера (обидва борти)"
+    caption = next(s for s in series_of(page, "motion-speed") if s.get("name") == "Без енкодера")
+    assert caption["data"] == [[0, "без енкодера: обидва борти"]]

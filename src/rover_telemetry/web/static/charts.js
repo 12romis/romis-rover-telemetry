@@ -12,13 +12,33 @@
   var UNAVAILABLE =
     'Графік тимчасово недоступний. Решта сторінки працює — спробуйте оновити сторінку трохи пізніше.';
   var NO_DATA = 'немає даних';
+  var NOT_REPORTED = 'ровер не передав'; // загальна форма absent_reason_label для code=not_reported
   var GAP_LABEL = 'не дійшла';
   var AXIS_NAME = 'Номер сесії';
   var AXIS_PADDING = 0.4; // презентаційний запас осі напруги за крайніми значеннями, В (не доменна константа)
   var MARKER_RADIUS = 4.5;
   var MARKER_SHIFT = 10; // зсув маркерів початку й кінця від центра слота, px
+  // Презентаційні відступи й пропорції (не доменні константи, конституція №3).
+  var LABEL_WIDTH = 84; // ширина підпису причини завершення, px
+  var LABEL_LINE_HEIGHT = 14; // висота рядка такого підпису, px
+  var LABEL_GAP = 8; // відступ підпису від маркера, px
+  var GRID_BOTTOM = 56; // відступ поля знизу під вісь і її назву, px
+  var AXIS_LABELS_SPACE = 18; // скільки з нього ще забирають підписи осі (containLabel), px
+  var LABEL_LINES = 3; // скільки рядків підпису враховуємо при розміщенні
+  var BAR_HEADROOM = 1.25; // запас осі над найвищим стовпцем, щоб підпис над ним не виходив за поле
+  var NO_HOLDS_HEIGHT = 0.7; // висота рамки «утримань не було» від висоти поля
+  var SLOT_FILL = 0.8; // ширина штрихування слота від ширини категорії
+  var CAPTION_SIZE = 12; // кегль підписів у слоті, px
+  var NARROW_WIDTH = 520; // вужче — легенда може зайняти два рядки
+  var GRID_TOP = 44; // відступ поля під легенду в один рядок, px
+  var GRID_TOP_NARROW = 68; // те саме в два рядки
 
   var charts = [];
+
+  // Вужчий екран → легенда переноситься, тож полю потрібен більший верхній відступ.
+  function gridTop() {
+    return document.documentElement.clientWidth < NARROW_WIDTH ? GRID_TOP_NARROW : GRID_TOP;
+  }
 
   // ---------- Допоміжне ----------
 
@@ -70,7 +90,7 @@
     line.appendChild(document.createTextNode(label + ' — '));
     line.appendChild(node('em', NO_DATA));
     if (reason) {
-      line.appendChild(document.createTextNode(' (' + reason + ')'));
+      line.appendChild(document.createTextNode(' — ' + reason));
     }
     return line;
   }
@@ -111,6 +131,27 @@
   // Підпис слота «немає даних» разом із причиною вздовж слота (screens.md «Правила показу»).
   function noDataText(data, seq, value) {
     var reason = reasonFor(data, seq, value);
+    return reason ? NO_DATA + ' — ' + reason : NO_DATA;
+  }
+
+  // Спільна причина для слота з кількома відсутніми значеннями: однакові підписи → вони;
+  // однаковий код «ровер не передав» → загальне формулювання; інакше причина відсутнього
+  // `fallback` (напр. «обидва борти»), інакше лише «немає даних» — повні причини в підказці й примітках.
+  function slotReason(data, seq, values, fallback) {
+    var found = data.reasons.filter(function (r) {
+      return r.seq === seq && values.indexOf(r.value) !== -1;
+    });
+    if (found.length && found.every(function (r) { return r.label === found[0].label; })) {
+      return found[0].label;
+    }
+    if (found.length && found.every(function (r) { return r.code === 'not_reported'; })) {
+      return NOT_REPORTED;
+    }
+    var other = fallback ? reasonFor(data, seq, fallback) : '';
+    return other;
+  }
+
+  function slotText(reason) {
     return reason ? NO_DATA + ' — ' + reason : NO_DATA;
   }
 
@@ -260,7 +301,18 @@
     data.slots.forEach(function (slot, i) {
       var none = data.series.start[i] === null && data.series.min[i] === null && data.series.end[i] === null;
       if (!slot.gap && none) {
-        rows.push({ i: i, kind: 'no_data', text: noDataText(data, slot.seq, 'start') });
+        rows.push({ i: i, kind: 'no_data', text: slotText(slotReason(data, slot.seq, ['start', 'min', 'end'])) });
+      }
+    });
+    return rows;
+  }
+
+  // Слот без просадки (немає початкової чи мінімальної напруги): не нуль, а «немає даних».
+  function dropStates(data) {
+    var rows = [];
+    data.slots.forEach(function (slot, i) {
+      if (!slot.gap && data.drop[i] === null) {
+        rows.push({ i: i, kind: 'no_data', text: noDataText(data, slot.seq, 'drop') });
       }
     });
     return rows;
@@ -284,7 +336,7 @@
       var known = [series.start[i], series.min[i], series.end[i]].filter(function (v) {
         return v !== null;
       });
-      return [i, known.length ? Math.min.apply(null, known) : null, data.end_reason_label[i]];
+      return [i, known.length ? Math.min.apply(null, known) : null, data.end_reason_label[i], known.length ? Math.max.apply(null, known) : null];
     });
     function markerSeries(name, field, shape, shift) {
       return {
@@ -305,6 +357,14 @@
     });
     var axisMin = Math.min.apply(null, known.concat([c.cutoff_v])) - AXIS_PADDING;
     var axisMax = Math.max.apply(null, known.concat([c.full_charge_v])) + AXIS_PADDING;
+    // Під найнижчим маркером слота з підписом причини завершення лишається місце для підпису.
+    var labelled = lowest.filter(function (l) { return l[2] && l[1] !== null; });
+    if (labelled.length) {
+      var plotHeight = parseInt(token('--chart-height'), 10) - gridTop() - GRID_BOTTOM - AXIS_LABELS_SPACE;
+      var share = (LABEL_LINES * LABEL_LINE_HEIGHT + MARKER_RADIUS + LABEL_GAP) / plotHeight;
+      var lowestLabelled = Math.min.apply(null, labelled.map(function (l) { return l[1]; }));
+      axisMin = Math.min(axisMin, (lowestLabelled - share * axisMax) / (1 - share));
+    }
     var line = function (value, text) {
       return {
         yAxis: value,
@@ -319,7 +379,7 @@
     });
     return {
       animation: false,
-      grid: { left: 8, right: 14, top: 44, bottom: 56, containLabel: true },
+      grid: { left: 8, right: 14, top: gridTop(), bottom: GRID_BOTTOM, containLabel: true },
       legend: {
         top: 0,
         data: [
@@ -393,17 +453,23 @@
               return null;
             }
             var point = api.coord([api.value(0), api.value(1)]);
+            var area = params.coordSys;
+            // Під найнижчим маркером, а коли знизу бракує місця (до осі X) — над найвищим.
+            var below = point[1] + MARKER_RADIUS + LABEL_GAP;
+            var fits = below + LABEL_LINES * LABEL_LINE_HEIGHT <= area.y + area.height;
+            var above = api.coord([api.value(0), api.value(3)])[1] - MARKER_RADIUS - LABEL_GAP;
             return {
               type: 'text',
               style: {
                 text: label,
                 x: point[0],
-                y: point[1] + 12,
-                width: 84,
+                y: fits ? below : above,
+                width: LABEL_WIDTH,
                 overflow: 'break',
                 align: 'center',
-                verticalAlign: 'top',
+                verticalAlign: fits ? 'top' : 'bottom',
                 fontSize: 11,
+                lineHeight: LABEL_LINE_HEIGHT,
                 fill: token('--chart-min'),
               },
             };
@@ -421,18 +487,23 @@
         return null;
       }
       if (data.largest_drop_seq === data.slots[i].seq) {
-        return { value: value, label: { show: true, position: 'top', formatter: 'найбільша просадка', color: token('--color-text') } };
+        return {
+          value: value,
+          label: { show: true, position: 'top', formatter: 'найбільша\nпросадка', lineHeight: LABEL_LINE_HEIGHT - 2, color: token('--color-text') },
+        };
       }
       return value;
     });
+    var largest = Math.max.apply(null, data.drop.filter(function (v) { return v !== null; }).concat([0]));
     return {
       animation: false,
-      grid: { left: 8, right: 14, top: 36, bottom: 56, containLabel: true },
+      grid: { left: 8, right: 14, top: 36, bottom: GRID_BOTTOM, containLabel: true },
       xAxis: xAxis(data),
       yAxis: {
         type: 'value',
         name: 'В',
         min: 0,
+        max: largest > 0 ? largest * BAR_HEADROOM : undefined, // місце над найвищим стовпцем для підпису
         axisLabel: { color: token('--color-muted'), formatter: axisNumber },
       },
       tooltip: tooltipOption(data, function (i) {
@@ -453,7 +524,7 @@
           barMaxWidth: 28,
           itemStyle: { color: token('--chart-drop') },
         },
-        slotStates(batteryStates(data)),
+        slotStates(dropStates(data)),
         gapSeries(data),
         hitSeries(data),
       ],
@@ -499,11 +570,14 @@
         var width = api.size([1, 0])[0];
         var center = api.coord([api.value(0), 0])[0];
         var frame = row.kind === 'no_holds';
-        var height = frame ? area.height * 0.7 : area.height;
+        var height = frame ? area.height * NO_HOLDS_HEIGHT : area.height;
         var top = area.y + area.height - height;
+        // Підпис іде вздовж слота й обрізається по його довжині; у слоті з підписом «без енкодера»
+        // (`row.upper`) він займає верхню половину, а той підпис — нижню. Повна причина — у підказці.
+        var span = row.upper ? height / 2 : height;
         var rect = {
           type: 'rect',
-          shape: { x: center - width * 0.4, y: top, width: width * 0.8, height: height },
+          shape: { x: center - width * SLOT_FILL / 2, y: top, width: width * SLOT_FILL, height: height },
           style: frame
             ? { fill: 'none', stroke: token('--chart-reference'), lineWidth: 1 }
             : { fill: hatch(), stroke: token('--color-no-data'), lineWidth: 1 },
@@ -511,12 +585,14 @@
         var text = {
           type: 'text',
           x: center,
-          y: top + height / 2,
+          y: top + span / 2,
           rotation: Math.PI / 2,
           style: {
             text: row.text,
             x: 0,
             y: 0,
+            width: span - 8,
+            overflow: 'truncate',
             align: 'center',
             verticalAlign: 'middle',
             fontSize: 11,
@@ -582,13 +658,13 @@
     });
     return {
       animation: false,
-      grid: { left: 8, right: 14, top: 36, bottom: 56, containLabel: true },
+      grid: { left: 8, right: 14, top: 36, bottom: GRID_BOTTOM, containLabel: true },
       xAxis: xAxis(data),
       yAxis: {
         type: 'value',
         name: 'мм',
         min: 0,
-        max: Math.ceil(top * 1.25),
+        max: Math.ceil(top * BAR_HEADROOM),
         axisLabel: { color: token('--color-muted'), formatter: axisNumber },
       },
       tooltip: obstaclesTooltip(data),
@@ -635,7 +711,7 @@
     });
     return {
       animation: false,
-      grid: { left: 8, right: 14, top: 36, bottom: 56, containLabel: true },
+      grid: { left: 8, right: 14, top: 36, bottom: GRID_BOTTOM, containLabel: true },
       xAxis: xAxis(data),
       yAxis: { type: 'value', name: 'с', min: 0, axisLabel: { color: token('--color-muted'), formatter: axisNumber } },
       tooltip: obstaclesTooltip(data),
@@ -659,9 +735,9 @@
   // Короткі підписи напрямку на стовпці; повний текст («лівий борт швидший») — у підказці.
   var SHORT_DIRECTION = { left: 'лівий\nшвидший', right: 'правий\nшвидший', equal: 'однаково' };
 
-  // Швидкість борту: «0,117 м/с (50,8 об/хв)»; null лишається null.
+  // Швидкість борту за SCR-05: «50,8 об/хв (0,117 м/с)»; null лишається null.
   function speedLabel(mps, rpm) {
-    return mps === null ? null : comma(mps, 3) + ' м/с (' + comma(rpm, 1) + ' об/хв)';
+    return mps === null ? null : comma(rpm, 1) + ' об/хв (' + comma(mps, 3) + ' м/с)';
   }
 
   function motionTooltip(data) {
@@ -677,7 +753,7 @@
         row('Правий борт, пікова', speedLabel(r.peak_mps, r.peak_rpm), reasonFor(data, seq, 'right_peak')),
         row(
           'Різниця бортів',
-          imb.pct === null ? null : comma(imb.pct, 1) + ' % (' + imb.faster_label + ')',
+          imb.pct === null ? null : comma(imb.pct, 1) + ' %, ' + imb.faster_label,
           reasonFor(data, seq, 'imbalance')
         ),
       ];
@@ -732,12 +808,24 @@
       renderItem: function (params, api) {
         var area = params.coordSys;
         var center = api.coord([api.value(0), 0])[0];
+        // Нижня половина слота; «без енкодера:» і «обидва борти» — двома рядками, щоб вміститися.
         return {
           type: 'text',
           x: center,
-          y: area.y + area.height - 70,
+          y: area.y + area.height * 0.75,
           rotation: Math.PI / 2,
-          style: { text: rows[params.dataIndex][1], x: 0, y: 0, align: 'center', verticalAlign: 'middle', fontSize: 11, fill: token('--chart-reference') },
+          style: {
+            text: rows[params.dataIndex][1].replace(': ', ':\n'),
+            x: 0,
+            y: 0,
+            width: area.height / 2 - 8,
+            overflow: 'truncate',
+            align: 'center',
+            verticalAlign: 'middle',
+            fontSize: 11,
+            lineHeight: LABEL_LINE_HEIGHT - 2,
+            fill: token('--chart-reference'),
+          },
         };
       },
     };
@@ -757,14 +845,15 @@
       var l = data.left[i];
       var r = data.right[i];
       if ([l.avg_mps, l.peak_mps, r.avg_mps, r.peak_mps].every(function (v) { return v === null; })) {
-        states.push({ i: i, kind: 'no_data', text: noDataText(data, slot.seq, 'left_avg') });
+        var reason = slotReason(data, slot.seq, ['left_avg', 'left_peak', 'right_avg', 'right_peak'], 'imbalance');
+        states.push({ i: i, kind: 'no_data', text: slotText(reason), upper: !!data.no_encoder[i] });
       }
     });
     var leftColor = token('--chart-left');
     var rightColor = token('--chart-right');
     return {
       animation: false,
-      grid: { left: 8, right: 14, top: 44, bottom: 56, containLabel: true },
+      grid: { left: 8, right: 14, top: gridTop(), bottom: GRID_BOTTOM, containLabel: true },
       legend: {
         top: 0,
         data: [
@@ -793,7 +882,7 @@
           barGap: '0%',
           itemStyle: {
             color: rightColor,
-            decal: { symbol: 'rect', dashArrayX: [1, 0], dashArrayY: [2, 3], rotation: Math.PI / 4, color: 'rgba(255,255,255,0.7)' },
+            decal: { symbol: 'rect', dashArrayX: [1, 0], dashArrayY: [2, 3], rotation: Math.PI / 4, color: token('--chart-decal') },
           },
         },
         peakSeries('Пік лівого борту', data, 'left', -BAR_WIDTH / 2, leftColor),
@@ -813,7 +902,7 @@
         return null;
       }
       if (imb.pct === null) {
-        states.push({ i: i, kind: 'no_data', text: noDataText(data, data.slots[i].seq, 'imbalance') });
+        states.push({ i: i, kind: 'no_data', text: noDataText(data, data.slots[i].seq, 'imbalance'), upper: !!data.no_encoder[i] });
         return null;
       }
       return {
@@ -824,12 +913,13 @@
           formatter: comma(imb.pct, 1) + ' %\n' + SHORT_DIRECTION[imb.faster],
           color: token('--color-text'),
           fontSize: 10,
+          lineHeight: LABEL_LINE_HEIGHT - 2,
         },
       };
     });
     return {
       animation: false,
-      grid: { left: 8, right: 14, top: 44, bottom: 56, containLabel: true },
+      grid: { left: 8, right: 14, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: true },
       xAxis: xAxis(data),
       yAxis: {
         type: 'value',
